@@ -1,0 +1,68 @@
+import type { Strings } from './index';
+
+export const zhCN: Strings = {
+  'app.title': '黄金矿工',
+  'menu.newGame': '新游戏',
+  'menu.continue': '继续游戏',
+  'menu.continueInfo': '第 {level} 关 · ${money}',
+  'menu.language': '语言',
+  'menu.howTo': '玩法说明',
+  'menu.howToDesktop': '按空格键或 ↓ 放下钩子。↑ 投掷炸药。P 暂停。M 静音。',
+  'menu.howToMobile': '点击屏幕放下钩子。拥有炸药时可点击炸药按钮。',
+  'menu.sound': '音效',
+  'menu.on': '开',
+  'menu.off': '关',
+  'menu.badLink': '该链接不是有效的存档。',
+
+  'hud.money': '金钱',
+  'hud.goal': '目标',
+  'hud.time': '时间',
+  'hud.level': '关卡',
+  'hud.dynamite': '炸药',
+  'hud.pause': '暂停',
+
+  'level.start': '第 {level} 关',
+  'level.goal': '目标：${goal}',
+  'level.tapToStart': '点击屏幕或按空格键开始',
+  'level.cleared': '第 {level} 关通关！',
+  'level.failed': '未达到目标金额。',
+  'level.money': '金钱：${money}',
+  'level.next': '进入商店',
+  'level.retry': '再试一次',
+
+  'gameover.title': '游戏结束',
+  'gameover.summary': '你到达了第 {level} 关，共获得 ${money}。',
+
+  'pause.title': '已暂停',
+  'pause.resume': '继续',
+  'pause.restartLevel': '重新开始本关',
+  'pause.quit': '返回主菜单',
+  'pause.saveLink': '你的存档链接',
+  'pause.copy': '复制链接',
+  'pause.copied': '已复制！',
+
+  'shop.title': '商店',
+  'shop.subtitle': '道具仅在下一关有效。',
+  'shop.money': '金钱：${money}',
+  'shop.buy': '购买',
+  'shop.owned': '已拥有',
+  'shop.tooExpensive': '金钱不足',
+  'shop.next': '下一关',
+
+  'item.dynamite': '炸药',
+  'item.dynamite.desc': '对钩住的重物投掷炸药将其炸碎，钩子全速收回。',
+  'item.drink': '力量饮料',
+  'item.drink.desc': '收线速度提升 50%。',
+  'item.rockBook': '石头收藏书',
+  'item.rockBook.desc': '石头价值变为三倍。',
+  'item.polish': '钻石抛光剂',
+  'item.polish.desc': '钻石价值提升 50%。',
+  'item.clover': '幸运四叶草',
+  'item.clover.desc': '神秘袋子里一定有好东西。',
+
+  'bag.cash': '+${amount}',
+  'bag.item': '免费获得{item}！',
+  'bag.nothing': '空袋子……',
+
+  'orientation.hint': '横屏体验更佳。',
+};

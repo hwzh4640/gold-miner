@@ -1,0 +1,68 @@
+import type { Strings } from './index';
+
+export const zhTW: Strings = {
+  'app.title': '黃金礦工',
+  'menu.newGame': '新遊戲',
+  'menu.continue': '繼續遊戲',
+  'menu.continueInfo': '第 {level} 關 · ${money}',
+  'menu.language': '語言',
+  'menu.howTo': '玩法說明',
+  'menu.howToDesktop': '按空白鍵或 ↓ 放下鉤子。↑ 投擲炸藥。P 暫停。M 靜音。',
+  'menu.howToMobile': '點擊螢幕放下鉤子。擁有炸藥時可點擊炸藥按鈕。',
+  'menu.sound': '音效',
+  'menu.on': '開',
+  'menu.off': '關',
+  'menu.badLink': '此連結不是有效的存檔。',
+
+  'hud.money': '金錢',
+  'hud.goal': '目標',
+  'hud.time': '時間',
+  'hud.level': '關卡',
+  'hud.dynamite': '炸藥',
+  'hud.pause': '暫停',
+
+  'level.start': '第 {level} 關',
+  'level.goal': '目標：${goal}',
+  'level.tapToStart': '點擊螢幕或按空白鍵開始',
+  'level.cleared': '第 {level} 關過關！',
+  'level.failed': '未達到目標金額。',
+  'level.money': '金錢：${money}',
+  'level.next': '進入商店',
+  'level.retry': '再試一次',
+
+  'gameover.title': '遊戲結束',
+  'gameover.summary': '你到達了第 {level} 關，共獲得 ${money}。',
+
+  'pause.title': '已暫停',
+  'pause.resume': '繼續',
+  'pause.restartLevel': '重新開始本關',
+  'pause.quit': '返回主選單',
+  'pause.saveLink': '你的存檔連結',
+  'pause.copy': '複製連結',
+  'pause.copied': '已複製！',
+
+  'shop.title': '商店',
+  'shop.subtitle': '道具僅在下一關有效。',
+  'shop.money': '金錢：${money}',
+  'shop.buy': '購買',
+  'shop.owned': '已擁有',
+  'shop.tooExpensive': '金錢不足',
+  'shop.next': '下一關',
+
+  'item.dynamite': '炸藥',
+  'item.dynamite.desc': '對鉤住的重物投擲炸藥將其炸碎，鉤子全速收回。',
+  'item.drink': '力量飲料',
+  'item.drink.desc': '收線速度提升 50%。',
+  'item.rockBook': '石頭收藏書',
+  'item.rockBook.desc': '石頭價值變為三倍。',
+  'item.polish': '鑽石拋光劑',
+  'item.polish.desc': '鑽石價值提升 50%。',
+  'item.clover': '幸運四葉草',
+  'item.clover.desc': '神秘袋子裡一定有好東西。',
+
+  'bag.cash': '+${amount}',
+  'bag.item': '免費獲得{item}！',
+  'bag.nothing': '空袋子……',
+
+  'orientation.hint': '橫向螢幕體驗更佳。',
+};
