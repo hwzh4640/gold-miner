@@ -1,4 +1,5 @@
 import './styles.css';
+import { registerSW } from 'virtual:pwa-register';
 import { Game, type BagOutcome } from './game/Game';
 import { ITEM_SPECS, isRock } from './game/entities';
 import { clearStoredSave, readSaveFromHash, readSaveFromStorage } from './game/save';
@@ -178,6 +179,9 @@ overlay.pendingSave = hashSave ?? readSaveFromStorage();
 overlay.menu();
 
 if (import.meta.env.DEV) (window as unknown as { __game: Game }).__game = game;
+
+// Offline support / installability. Updates are applied on the next launch.
+registerSW({ immediate: true });
 
 /* ---------- Loop ---------- */
 

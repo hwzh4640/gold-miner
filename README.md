@@ -5,6 +5,7 @@ A browser remake of the classic Flash game *Gold Miner* (黃金礦工). Swing th
 - Runs anywhere as static files. No backend, no frameworks, no downloaded assets: all art is drawn on a canvas and all sound is synthesized with Web Audio.
 - Desktop and mobile. Keyboard on desktop, tap anywhere on touch screens.
 - English, 简体中文 and 繁體中文. Auto-detected from the browser, switchable in the menu, or forced with `?lang=en|zh-CN|zh-TW`.
+- Installable PWA. On iPhone/iPad open the link in Safari, tap Share → Add to Home Screen; it launches full-screen with its own icon and splash screen and works offline thanks to a service worker (`vite-plugin-pwa`).
 - Save links. Every new game gets a URL like `…/#g=AVp_1qUBAAAAAAAAxg`. Open it later on any device to continue from the current level with your money and purchased items. Progress is also mirrored in localStorage.
 
 ## Controls
