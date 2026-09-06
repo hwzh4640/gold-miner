@@ -1,4 +1,4 @@
-import { Hook } from './Hook';
+import { Hook, swingPeriodForLevel } from './Hook';
 import { generateLevel, itemValue, LEVEL_SECONDS, WORLD_W, type LevelData } from './Level';
 import { ITEM_SPECS, isMole, isRock, type Entity } from './entities';
 import { Rng, subSeed, randomSeed } from './rng';
@@ -93,6 +93,7 @@ export class Game {
     this.levelRng = new Rng(subSeed(this.save.seed, 500_000 + this.save.level));
     this.buffs = buffsFromInventory(this.save.inventory);
     this.hook.reset();
+    this.hook.swingPeriod = swingPeriodForLevel(this.save.level);
     this.hook.reelMultiplier = this.buffs.reelMultiplier;
     this.levelMoney = 0;
     this.timeLeft = LEVEL_SECONDS;

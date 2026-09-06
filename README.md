@@ -20,6 +20,7 @@ A browser remake of the classic Flash game *Gold Miner* (黃金礦工). Swing th
 ## Rules
 
 - 60 seconds per level. Reach the goal or it is game over; you can retry the same level.
+- The hook swings slowly on level 1 (3 s per swing) and speeds up each level until it reaches full speed (1.7 s) at level 8.
 - Money carries over. Goals follow the classic curve ($650, $1150, $2150, $3650, $5650…). From level 4 item values scale with the goal so a level stays clearable in roughly a dozen grabs.
 - Items: small/medium/large/huge gold, small/large rocks (heavy, nearly worthless), diamonds (light, $600), mystery bags (cash or a free item), moles (fast, $2) and moles carrying a diamond.
 - Shop items last for one level: Dynamite (destroys whatever is on the hook), Strength Drink (reel 50% faster), Rock Collector's Book (rocks ×3), Diamond Polish (diamonds ×1.5), Lucky Clover (bags are always good).

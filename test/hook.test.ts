@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Hook, retractSpeed, PIVOT_X, PIVOT_Y, MIN_LENGTH, SWING_AMPLITUDE } from '../src/game/Hook';
+import { Hook, retractSpeed, swingPeriodForLevel, PIVOT_X, PIVOT_Y, MIN_LENGTH, SWING_AMPLITUDE, SWING_PERIOD, SWING_PERIOD_START } from '../src/game/Hook';
 import type { Entity } from '../src/game/entities';
 
 function ent(kind: Entity['kind'], x: number, y: number): Entity {
@@ -11,6 +11,34 @@ describe('Hook', () => {
     expect(retractSpeed(6, 1)).toBeLessThan(retractSpeed(1, 1));
     expect(retractSpeed(0.5, 1)).toBeLessThan(retractSpeed(0.5, 1.5));
     expect(retractSpeed(4, 1.5)).toBeCloseTo(retractSpeed(4, 1) * 1.5);
+  });
+
+  it('swings slowly on early levels and reaches full speed by level 8', () => {
+    expect(swingPeriodForLevel(1)).toBe(SWING_PERIOD_START);
+    expect(swingPeriodForLevel(8)).toBeCloseTo(SWING_PERIOD);
+    expect(swingPeriodForLevel(30)).toBeCloseTo(SWING_PERIOD);
+    for (let l = 1; l < 8; l++) expect(swingPeriodForLevel(l + 1)).toBeLessThan(swingPeriodForLevel(l));
+    // Level 2 is already noticeably faster than level 1 but still far from full speed.
+    expect(swingPeriodForLevel(2)).toBeLessThan(SWING_PERIOD_START - 0.2);
+    expect(swingPeriodForLevel(2)).toBeGreaterThan(SWING_PERIOD + 0.5);
+  });
+
+  it('a slower period takes longer to complete a swing', () => {
+    const fast = new Hook();
+    const slow = new Hook();
+    slow.swingPeriod = 3;
+    fast.swingPeriod = 1.5;
+    const halfSwing = (h: Hook) => {
+      let t = 0;
+      // Time until the hook first returns to (near) the centre from the right side.
+      while (t < 10) {
+        h.update(1 / 120, []);
+        t += 1 / 120;
+        if (t > 0.1 && h.angle < 0) return t;
+      }
+      return t;
+    };
+    expect(halfSwing(slow)).toBeCloseTo(halfSwing(fast) * 2, 1);
   });
 
   it('swings within amplitude and only fires while swinging', () => {

@@ -7,7 +7,19 @@ export const PIVOT_X = WORLD_W / 2;
 export const PIVOT_Y = 118;
 /** Swing amplitude either side of straight down, radians. */
 export const SWING_AMPLITUDE = (80 * Math.PI) / 180;
+/** Full swing period (seconds) at full difficulty. */
 export const SWING_PERIOD = 1.7;
+/** Period on level 1; beginners get a slow, easy-to-aim swing. */
+export const SWING_PERIOD_START = 3.0;
+/** Level at which the swing reaches full speed. */
+export const SWING_FULL_SPEED_LEVEL = 8;
+
+/** Seconds per full swing for a given level: 3.0 s on level 1 easing down to 1.7 s by level 8. */
+export function swingPeriodForLevel(level: number): number {
+  const k = Math.min(1, Math.max(0, (level - 1) / (SWING_FULL_SPEED_LEVEL - 1)));
+  const eased = k * (2 - k); // ease-out: biggest speed-ups happen in the early levels
+  return SWING_PERIOD_START + (SWING_PERIOD - SWING_PERIOD_START) * eased;
+}
 export const EXTEND_SPEED = 620; // world units / s
 export const BASE_RETRACT_SPEED = 620;
 export const EMPTY_RETRACT_SPEED = 700;
@@ -24,6 +36,8 @@ export class Hook {
   /** Angle from straight down; positive = towards the right. */
   angle = 0;
   length = MIN_LENGTH;
+  /** Seconds per full swing; set per level via swingPeriodForLevel. */
+  swingPeriod = SWING_PERIOD;
   /** Clock driving the pendulum. */
   private swingT = 0;
   grabbed: Entity | null = null;
@@ -68,7 +82,7 @@ export class Hook {
     switch (this.phase) {
       case 'swing': {
         this.swingT += dt;
-        this.angle = SWING_AMPLITUDE * Math.sin((this.swingT / SWING_PERIOD) * Math.PI * 2);
+        this.angle = SWING_AMPLITUDE * Math.sin((this.swingT / this.swingPeriod) * Math.PI * 2);
         return null;
       }
       case 'extend': {

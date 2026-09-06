@@ -54,6 +54,14 @@ describe('Game flow', () => {
     if (affordable && offer.id === 'drink') expect(g.buffs.reelMultiplier).toBe(1.5);
   });
 
+  it('applies the level swing period when a level loads', () => {
+    const g = new Game();
+    g.continueGame({ v: 1, seed: 5, level: 1, money: 0, inventory: [] });
+    expect(g.hook.swingPeriod).toBe(3);
+    g.continueGame({ v: 1, seed: 5, level: 10, money: 0, inventory: [] });
+    expect(g.hook.swingPeriod).toBeCloseTo(1.7);
+  });
+
   it('failing the goal is game over and keeps the save at the same level', () => {
     const g = new Game();
     g.continueGame({ v: 1, seed: 5, level: 3, money: 500, inventory: [] });
