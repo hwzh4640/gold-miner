@@ -140,7 +140,7 @@ export class Renderer {
       ctx.stroke();
       if (hook.phase === 'retract') this.reelSpin += dt * 10;
       else if (hook.phase === 'extend') this.reelSpin -= dt * 10;
-      drawMiner(ctx, PIVOT_X, PIVOT_Y, this.reelSpin, hook.angle, hook.phase);
+      drawMiner(ctx, PIVOT_X, PIVOT_Y, this.reelSpin, hook.phase);
       drawClaw(ctx, hook.tipX, hook.tipY, hook.angle, hook.grabbed ? 0 : 1);
 
       for (const p of game.popups) {

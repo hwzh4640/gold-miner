@@ -227,52 +227,151 @@ export function drawEntity(ctx: Ctx, e: Entity, t: number): void {
 }
 
 /** The miner with a winch, drawn at the pivot point. `spin` rotates the reel. */
-export function drawMiner(ctx: Ctx, px: number, py: number, spin: number, hookAngle: number, phase: string): void {
+export function drawMiner(ctx: Ctx, px: number, py: number, spin: number, phase: string): void {
   ctx.save();
   ctx.translate(px, py);
   // Ledge / platform
   ctx.fillStyle = '#7a4b1c';
-  ctx.fillRect(-90, 22, 180, 12);
-  // Miner body (behind reel)
+  ctx.fillRect(-100, 22, 200, 12);
+
+  // ---- Miner (sits to the right of the winch, cranking it) ----
   ctx.save();
-  ctx.translate(46, -6);
-  ctx.fillStyle = '#b97b3f';
-  ctx.beginPath();
-  ctx.roundRect(-16, -34, 34, 52, 8);
-  ctx.fill();
-  // Head
-  ctx.beginPath();
-  ctx.arc(0, -52, 15, 0, Math.PI * 2);
-  ctx.fillStyle = '#f2c9a0';
-  ctx.fill();
-  // Beard
-  ctx.beginPath();
-  ctx.ellipse(0, -42, 13, 9, 0, 0, Math.PI);
-  ctx.fillStyle = '#eee';
-  ctx.fill();
-  // Hat
-  ctx.fillStyle = '#c98a3a';
-  ctx.beginPath();
-  ctx.roundRect(-18, -72, 36, 10, 3);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.roundRect(-11, -84, 22, 14, 4);
-  ctx.fill();
-  // Arm to crank
-  const armAng = phase === 'retract' ? Math.sin(spin * 3) * 0.5 : 0.1;
-  ctx.strokeStyle = '#b97b3f';
-  ctx.lineWidth = 9;
+  ctx.translate(58, -4);
+  const cranking = phase === 'retract' || phase === 'extend';
+  const crank = cranking ? spin * 3 : 0;
   ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.moveTo(-8, -20);
-  ctx.lineTo(-34 + Math.cos(armAng) * 6, 0 + Math.sin(armAng) * 8);
-  ctx.stroke();
-  // Legs
+  ctx.lineJoin = 'round';
+
+  // Legs (kneeling, seen from the side)
   ctx.fillStyle = '#5a3a1a';
-  ctx.fillRect(-12, 16, 10, 12);
-  ctx.fillRect(4, 16, 10, 12);
+  ctx.beginPath();
+  ctx.roundRect(-12, 4, 34, 18, 6);
+  ctx.fill();
+  ctx.fillStyle = '#3a2411';
+  ctx.beginPath();
+  ctx.roundRect(-20, 14, 18, 10, 4);
+  ctx.fill();
+
+  // Torso
+  ctx.fillStyle = '#b97b3f';
+  ctx.strokeStyle = '#6b4520';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(-14, -46, 40, 54, 10);
+  ctx.fill();
+  ctx.stroke();
+  // Suspenders
+  ctx.strokeStyle = '#6b4520';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(-6, -44);
+  ctx.lineTo(-6, 4);
+  ctx.moveTo(14, -44);
+  ctx.lineTo(14, 4);
+  ctx.stroke();
+
+  // Arm to the crank handle (rotates with the reel)
+  const hx = -58 + Math.cos(crank) * 22;
+  const hy = -6 + Math.sin(crank) * 22;
+  ctx.strokeStyle = '#b97b3f';
+  ctx.lineWidth = 11;
+  ctx.beginPath();
+  ctx.moveTo(-8, -30);
+  ctx.quadraticCurveTo(-30, -36 + Math.sin(crank) * 6, hx, hy);
+  ctx.stroke();
+  ctx.fillStyle = '#f2c9a0';
+  ctx.beginPath();
+  ctx.arc(hx, hy, 7, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Head
+  ctx.fillStyle = '#f2c9a0';
+  ctx.strokeStyle = '#8a5a3a';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.ellipse(4, -72, 20, 22, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  // Ear
+  ctx.beginPath();
+  ctx.arc(24, -72, 5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  // Eye and brow
+  ctx.fillStyle = '#222';
+  ctx.beginPath();
+  ctx.arc(-6, -76, 2.6, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#ddd';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(-13, -84);
+  ctx.lineTo(-1, -86);
+  ctx.stroke();
+  // Nose
+  ctx.fillStyle = '#e8b48c';
+  ctx.beginPath();
+  ctx.arc(-12, -68, 5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Big white beard: covers the lower face and spills over the chest
+  ctx.fillStyle = '#f4f4f4';
+  ctx.strokeStyle = '#b9b9b9';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-14, -64);
+  ctx.quadraticCurveTo(-30, -40, -22, -18);
+  ctx.quadraticCurveTo(-14, -6, 0, -8);
+  ctx.quadraticCurveTo(14, -6, 22, -18);
+  ctx.quadraticCurveTo(30, -40, 22, -62);
+  ctx.quadraticCurveTo(4, -52, -14, -64);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  // Beard strands
+  ctx.strokeStyle = '#d6d6d6';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-10, -44);
+  ctx.quadraticCurveTo(-12, -30, -8, -18);
+  ctx.moveTo(4, -46);
+  ctx.quadraticCurveTo(4, -32, 4, -16);
+  ctx.moveTo(16, -44);
+  ctx.quadraticCurveTo(18, -30, 14, -20);
+  ctx.stroke();
+  // Moustache
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.ellipse(-8, -60, 11, 5, -0.15, 0, Math.PI * 2);
+  ctx.ellipse(8, -59, 11, 5, 0.15, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#b9b9b9';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Hat: wide brim + tall crown with a band
+  ctx.fillStyle = '#c98a3a';
+  ctx.strokeStyle = '#6b4520';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.ellipse(4, -88, 34, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(-16, -88);
+  ctx.quadraticCurveTo(-18, -104, -8, -108);
+  ctx.quadraticCurveTo(4, -111, 18, -108);
+  ctx.quadraticCurveTo(26, -104, 24, -88);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#5a3a1a';
+  ctx.beginPath();
+  ctx.rect(-16, -98, 40, 7);
+  ctx.fill();
   ctx.restore();
-  // Reel
+
+  // ---- Winch ----
   ctx.save();
   ctx.rotate(spin);
   ctx.fillStyle = '#2b2b2b';
@@ -302,7 +401,6 @@ export function drawMiner(ctx: Ctx, px: number, py: number, spin: number, hookAn
   ctx.moveTo(14, 6);
   ctx.lineTo(24, 24);
   ctx.stroke();
-  void hookAngle;
   ctx.restore();
 }
 
