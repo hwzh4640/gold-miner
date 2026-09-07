@@ -15,8 +15,5 @@
     "vite": "^8.2.2",
     "vite-plugin-pwa": "^1.3.0",
     "vitest": "^5.0.0"
-  },
-  "dependencies": {
-    "qrcode-generator": "^2.0.4"
   }
 }

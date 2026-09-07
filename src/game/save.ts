@@ -78,16 +78,34 @@ const FLAG_COOP = 1;
  *   v2 (14 bytes): as v1 plus [12] flags u8 (bit 0 = two players), [13] checksum of 0..12
  */
 export function encodeSave(s: SaveState): string {
-  const bytes = new Uint8Array(14);
+  // Solo games use the v1 layout so links keep working in older cached app versions;
+  // only co-op saves need the v2 flags byte.
+  const coop = s.players === 2;
+  const len = coop ? 14 : 13;
+  const bytes = new Uint8Array(len);
   const dv = new DataView(bytes.buffer);
-  dv.setUint8(0, SAVE_VERSION);
+  dv.setUint8(0, coop ? 2 : 1);
   dv.setUint32(1, s.seed >>> 0);
   dv.setUint8(5, Math.max(1, Math.min(255, s.level)));
   dv.setUint32(6, Math.max(0, Math.min(0xffffffff, Math.floor(s.money))));
   dv.setUint16(10, inventoryToMask(s.inventory));
-  dv.setUint8(12, s.players === 2 ? FLAG_COOP : 0);
-  dv.setUint8(13, checksum(bytes, 13));
+  if (coop) dv.setUint8(12, FLAG_COOP);
+  dv.setUint8(len - 1, checksum(bytes, len - 1));
   return toBase64Url(bytes);
+}
+
+/**
+ * Choose which save to offer on the menu when both a link (`#g=`) and local storage have
+ * one. A stale bookmark must not hide newer progress: same game → the further one wins;
+ * different games → the link wins and the local one is offered as an alternative.
+ */
+export function pickSave(fromHash: SaveState | null, fromStorage: SaveState | null): { primary: SaveState | null; alternative: SaveState | null } {
+  if (!fromHash) return { primary: fromStorage, alternative: null };
+  if (!fromStorage || fromStorage.seed !== fromHash.seed || fromStorage.players !== fromHash.players) {
+    return { primary: fromHash, alternative: fromStorage && fromStorage.seed !== fromHash.seed ? fromStorage : null };
+  }
+  const further = fromStorage.level > fromHash.level || (fromStorage.level === fromHash.level && fromStorage.money > fromHash.money);
+  return { primary: further ? fromStorage : fromHash, alternative: null };
 }
 
 export function decodeSave(code: string): SaveState | null {

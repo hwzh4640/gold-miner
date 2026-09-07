@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { encodeSave, decodeSave, newSave, readSaveFromHash, SAVE_VERSION } from '../src/game/save';
+import { encodeSave, decodeSave, newSave, pickSave, readSaveFromHash, SAVE_VERSION } from '../src/game/save';
 
 describe('save codec', () => {
   it('round-trips a fresh save', () => {
@@ -61,6 +61,29 @@ describe('save codec', () => {
     const code = btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     const d = decodeSave(code);
     expect(d).toEqual({ v: SAVE_VERSION, seed: 7, level: 3, money: 1200, inventory: ['dynamite', 'drink'], players: 1 });
+  });
+
+  it('writes solo saves in the v1 layout (13 bytes) and co-op in v2 (14 bytes)', () => {
+    const solo = encodeSave(newSave(1));
+    const coop = encodeSave(newSave(1, 2));
+    expect(solo.length).toBe(18); // 13 bytes → 18 base64url chars
+    expect(coop.length).toBe(19);
+    expect(decodeSave(solo)?.players).toBe(1);
+    expect(decodeSave(coop)?.players).toBe(2);
+  });
+
+  it('pickSave prefers the further progress of the same game and never hides a different local game', () => {
+    const link = { ...newSave(5), level: 1, money: 0 };
+    const local = { ...newSave(5), level: 4, money: 5000 };
+    expect(pickSave(link, local).primary).toEqual(local);
+    expect(pickSave(local, link).primary).toEqual(local);
+    expect(pickSave(link, local).alternative).toBeNull();
+    const other = { ...newSave(9), level: 2, money: 100 };
+    const r = pickSave(link, other);
+    expect(r.primary).toEqual(link);
+    expect(r.alternative).toEqual(other);
+    expect(pickSave(null, other).primary).toEqual(other);
+    expect(pickSave(link, null).primary).toEqual(link);
   });
 
   it('reads from a hash string', () => {
