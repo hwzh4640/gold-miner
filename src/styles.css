@@ -204,3 +204,6 @@ body.two-local #pauseBtn:active { transform: translate(-50%, 2px); }
   .panel { padding: 16px 14px; }
   .btn { min-width: 130px; }
 }
+
+.qr { width: min(220px, 60vw); margin: 10px auto 0; background: #fff; padding: 6px; border-radius: 10px; border: 2px solid #d9b26f; }
+.qr svg { display: block; width: 100%; height: auto; }

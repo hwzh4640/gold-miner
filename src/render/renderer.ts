@@ -148,13 +148,18 @@ export class Renderer {
         drawClaw(ctx, hook.tipX, hook.tipY, hook.angle, hook.grabbed ? 0 : 1);
         // Local-player marker in two-player games
         if (game.players.length > 1 && p.index === game.localPlayer && game.isOnline) {
+          const mx = hook.pivotX - 64;
+          const my = PIVOT_Y - 70 + Math.sin(this.time * 4) * 4;
           ctx.fillStyle = PLAYER_COLORS[p.index] ?? '#fff';
+          ctx.strokeStyle = '#5a3a12';
+          ctx.lineWidth = 2;
           ctx.beginPath();
-          ctx.moveTo(hook.pivotX - 10, PIVOT_Y - 132);
-          ctx.lineTo(hook.pivotX + 10, PIVOT_Y - 132);
-          ctx.lineTo(hook.pivotX, PIVOT_Y - 118);
+          ctx.moveTo(mx - 12, my - 16);
+          ctx.lineTo(mx + 12, my - 16);
+          ctx.lineTo(mx, my);
           ctx.closePath();
           ctx.fill();
+          ctx.stroke();
         }
       }
 

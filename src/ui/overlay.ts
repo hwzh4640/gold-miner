@@ -1,14 +1,16 @@
 import type { GameView } from '../game/Game';
 import { type SaveState, shareUrl } from '../game/save';
+import { shareOrCopy } from '../net/signal';
 import { formatMoney, getLang, LANG_NAMES, LANGS, setLang, t, type Lang, type StringKey } from '../i18n';
 
 import { ITEM_ICON } from './icons';
+import qrcode from 'qrcode-generator';
 
 export interface OverlayActions {
   newGame(players: 1 | 2): void;
   continueGame(save: SaveState): void;
   createOnline(): void;
-  haveReply(): void;
+  joinWithCode(): void;
   toggleSound(): boolean;
   isMuted(): boolean;
   isTouch(): boolean;
@@ -40,6 +42,11 @@ export class Overlay {
     this.root = document.getElementById('overlay')!;
     this.toastEl = document.getElementById('toast')!;
     document.getElementById('orientation')!.textContent = t('orientation.hint');
+  }
+
+  /** Point the overlays at a different view (local game vs. remote mirror). */
+  setGame(g: GameView): void {
+    this.game = g;
   }
 
   /** Re-render the current screen (used after language switches). */
@@ -114,7 +121,7 @@ export class Overlay {
       const two = el('div', 'row');
       two.appendChild(button(t('menu.localCoop'), 'secondary', () => this.actions.newGame(2)));
       two.appendChild(button(t('menu.createOnline'), 'secondary', () => this.actions.createOnline()));
-      two.appendChild(button(t('menu.haveReply'), 'secondary', () => this.actions.haveReply()));
+      two.appendChild(button(t('menu.joinCode'), 'secondary', () => this.actions.joinWithCode()));
       p.appendChild(two);
       const how = el('p', 'muted');
       how.textContent = this.actions.isTouch() ? t('menu.howToMobile') : t('menu.howToDesktop');
@@ -133,6 +140,7 @@ export class Overlay {
     this.show((p) => {
       p.appendChild(el('h1', undefined, t('level.start', { level: g.save.level })));
       p.appendChild(el('p', undefined, t('level.goal', { goal: g.level.goal.toLocaleString('en-US') })));
+      if (g.isOnline) p.appendChild(el('p', 'muted', t('online.youAre', { n: g.localPlayer + 1 })));
       if (g.save.inventory.length) {
         const row = el('div', 'row');
         for (const id of g.save.inventory) {
@@ -156,7 +164,7 @@ export class Overlay {
       row.appendChild(button(t('pause.quit'), 'secondary', () => g.quitToMenu()));
       row.appendChild(this.soundButton());
       p.appendChild(row);
-      p.appendChild(this.saveLinkBox());
+      if (g.isHost) p.appendChild(this.saveLinkBox());
       p.appendChild(this.langRow());
     });
   }
@@ -189,7 +197,8 @@ export class Overlay {
     this.show((p) => {
       p.appendChild(el('h1', undefined, t('level.cleared', { level: g.save.level })));
       p.appendChild(el('div', 'big-money', formatMoney(g.save.money)));
-      p.appendChild(button(t('level.next'), 'primary', () => g.openShop()));
+      if (g.isHost) p.appendChild(button(t('level.next'), 'primary', () => g.openShop()));
+      else p.appendChild(el('p', 'muted', t('online.waitingHostNext')));
     });
   }
 
@@ -201,7 +210,7 @@ export class Overlay {
       p.appendChild(el('p', undefined, t('gameover.summary', { level: g.save.level, money: g.money.toLocaleString('en-US') })));
       p.appendChild(button(t('level.retry'), 'primary', () => g.restartLevel()));
       const row = el('div', 'row');
-      row.appendChild(button(t('menu.newGame'), 'secondary', () => this.actions.newGame(g.save.players)));
+      if (!g.isOnline) row.appendChild(button(t('menu.newGame'), 'secondary', () => this.actions.newGame(g.save.players)));
       row.appendChild(button(t('pause.quit'), 'secondary', () => g.quitToMenu()));
       p.appendChild(row);
     });
@@ -247,7 +256,174 @@ export class Overlay {
         update();
       }
       p.appendChild(list);
-      p.appendChild(button(t('shop.next'), 'primary', () => g.nextLevel()));
+      if (g.isHost) p.appendChild(button(t('shop.next'), 'primary', () => g.nextLevel()));
+      else p.appendChild(el('p', 'muted', t('online.waitingHostNext')));
+    });
+  }
+
+  /* ---------- Online co-op screens ---------- */
+
+  private qr(text: string): HTMLElement {
+    const wrap = el('div', 'qr');
+    try {
+      const q = qrcode(0, 'L');
+      q.addData(text, 'Byte');
+      q.make();
+      wrap.innerHTML = q.createSvgTag({ cellSize: 3, margin: 2, scalable: true });
+    } catch {
+      wrap.textContent = '';
+    }
+    return wrap;
+  }
+
+  private shareRow(url: string, shareLabel: string, onDone: (r: 'shared' | 'copied' | 'failed') => void): HTMLElement {
+    const row = el('div', 'row');
+    row.appendChild(button(shareLabel, 'primary', async () => onDone(await shareOrCopy(url, t('app.title')))));
+    row.appendChild(
+      button(t('online.copy'), 'secondary', async () => {
+        try {
+          await navigator.clipboard.writeText(url);
+          onDone('copied');
+        } catch {
+          onDone('failed');
+        }
+      }),
+    );
+    return row;
+  }
+
+  /** Host lobby. `status` drives the message; the paste box always works. */
+  lobby(opts: {
+    status: 'preparing' | 'invite' | 'connecting' | 'failed' | 'expired';
+    link?: string;
+    onReply?: (code: string) => void;
+    onRetry: () => void;
+    onCancel: () => void;
+    resume?: { level: number; money: number; enabled: boolean; toggle: () => void };
+  }): void {
+    this.show((p) => {
+      p.appendChild(el('h2', undefined, t('online.title')));
+      if (opts.status === 'preparing') p.appendChild(el('p', undefined, t('online.preparing')));
+      if (opts.status === 'connecting') p.appendChild(el('p', undefined, t('online.connecting')));
+      if (opts.status === 'failed' || opts.status === 'expired') {
+        p.appendChild(el('p', undefined, t(opts.status === 'failed' ? 'online.failed' : 'online.expired')));
+        p.appendChild(button(t('online.tryAgain'), 'primary', opts.onRetry));
+      }
+      if (opts.status === 'invite' && opts.link) {
+        p.dataset.link = opts.link;
+        p.appendChild(el('p', undefined, t('online.inviteReady')));
+        p.appendChild(this.shareRow(opts.link, t('online.share'), (r) => r === 'copied' && this.toast(t('pause.copied'))));
+        p.appendChild(this.qr(opts.link));
+        p.appendChild(el('p', 'muted', t('online.qrHint')));
+        p.appendChild(el('p', undefined, t('online.waitingReply')));
+        p.appendChild(el('p', 'muted', t('online.pasteReply')));
+        const box = el('div', 'link-box');
+        const input = el('input');
+        input.placeholder = '#a=…';
+        const go = button(t('online.connect'), 'secondary', () => opts.onReply?.(input.value));
+        go.style.margin = '0';
+        box.append(input, go);
+        p.appendChild(box);
+        if (opts.resume) {
+          const r = opts.resume;
+          const b = button(r.enabled ? t('online.continueFrom', { level: r.level, money: r.money }) : t('online.startFresh'), 'secondary', () => {
+            r.toggle();
+            this.refresh();
+          });
+          b.style.marginTop = '12px';
+          p.appendChild(b);
+        }
+        p.appendChild(el('p', 'muted', t('online.hint')));
+      }
+      p.appendChild(button(t('pause.quit'), 'secondary', opts.onCancel));
+    });
+  }
+
+  /** Guest flow. */
+  join(opts: { status: 'joining' | 'reply' | 'waiting' | 'failed' | 'bad'; link?: string; onRetry: () => void; onCancel: () => void }): void {
+    this.show((p) => {
+      p.appendChild(el('h2', undefined, t('online.title')));
+      if (opts.status === 'joining') p.appendChild(el('p', undefined, t('online.joining')));
+      if (opts.status === 'bad') {
+        p.appendChild(el('p', undefined, t('online.badCode')));
+      }
+      if (opts.status === 'failed') {
+        p.appendChild(el('p', undefined, t('online.failed')));
+        p.appendChild(button(t('online.tryAgain'), 'primary', opts.onRetry));
+      }
+      if ((opts.status === 'reply' || opts.status === 'waiting') && opts.link) {
+        p.dataset.link = opts.link;
+        p.appendChild(el('p', undefined, t('online.replyReady')));
+        p.appendChild(this.shareRow(opts.link, t('online.sendReply'), (r) => r === 'copied' && this.toast(t('pause.copied'))));
+        p.appendChild(this.qr(opts.link));
+        p.appendChild(el('p', 'muted', t('online.qrHint')));
+        p.appendChild(el('p', undefined, t('online.waitingHost')));
+        p.appendChild(el('p', 'muted', t('online.hint')));
+      }
+      p.appendChild(button(t('pause.quit'), 'secondary', opts.onCancel));
+    });
+  }
+
+  /** Paste an invite code manually (when the link did not open in the app). */
+  pasteInvite(onCode: (text: string) => void, onCancel: () => void): void {
+    this.show((p) => {
+      p.appendChild(el('h2', undefined, t('online.title')));
+      p.appendChild(el('p', undefined, t('online.pasteInvite')));
+      const box = el('div', 'link-box');
+      const input = el('input');
+      input.placeholder = '#o=…';
+      const go = button(t('online.connect'), 'primary', () => onCode(input.value));
+      go.style.margin = '0';
+      box.append(input, go);
+      p.appendChild(box);
+      p.appendChild(button(t('pause.quit'), 'secondary', onCancel));
+      setTimeout(() => input.focus(), 50);
+    });
+  }
+
+  /** The tab that opened a reply link. */
+  replyDelivered(code: string, delivered: boolean): void {
+    this.show((p) => {
+      p.appendChild(el('h2', undefined, t('online.title')));
+      if (delivered) p.appendChild(el('p', undefined, t('online.replyDelivered')));
+      p.appendChild(el('p', 'muted', t('online.replyManual')));
+      const box = el('div', 'link-box');
+      const input = el('input');
+      input.readOnly = true;
+      input.value = code;
+      input.addEventListener('focus', () => input.select());
+      const copy = button(t('online.copyCode'), 'secondary', async () => {
+        try {
+          await navigator.clipboard.writeText(code);
+        } catch {
+          input.select();
+          document.execCommand('copy');
+        }
+        this.toast(t('pause.copied'));
+      });
+      copy.style.margin = '0';
+      box.append(input, copy);
+      p.appendChild(box);
+    });
+  }
+
+  /** Host: the guest dropped. */
+  peerLeft(onNewInvite: () => void, onAlone: () => void, onQuit: () => void): void {
+    this.show((p) => {
+      p.appendChild(el('h2', undefined, t('online.peerLeft')));
+      p.appendChild(button(t('online.newInvite'), 'primary', onNewInvite));
+      const row = el('div', 'row');
+      row.appendChild(button(t('online.continueAlone'), 'secondary', onAlone));
+      row.appendChild(button(t('pause.quit'), 'secondary', onQuit));
+      p.appendChild(row);
+    });
+  }
+
+  /** Guest: the host dropped. */
+  hostLeft(onQuit: () => void): void {
+    this.show((p) => {
+      p.appendChild(el('h2', undefined, t('online.hostLeft')));
+      p.appendChild(button(t('pause.quit'), 'primary', onQuit));
     });
   }
 }

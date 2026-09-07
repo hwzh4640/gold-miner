@@ -47,6 +47,14 @@ export class Hook {
   justGrabbed: Entity | null = null;
   reelMultiplier = 1;
 
+  /** Pendulum clock, exposed so a mirrored hook can be kept in phase with the original. */
+  get swingClock(): number {
+    return this.swingT;
+  }
+  set swingClock(v: number) {
+    this.swingT = v;
+  }
+
   reset(): void {
     this.phase = 'swing';
     this.length = MIN_LENGTH;

@@ -67,7 +67,7 @@ export const en = {
   'menu.localCoop': 'Same screen',
   'menu.localCoopHint': 'Left half of the screen fires player 1, right half player 2. Keyboard: S / W and ↓ / ↑.',
   'menu.createOnline': 'Create online game',
-  'menu.haveReply': 'I have a reply code',
+  'menu.joinCode': 'Join with invite code',
   'menu.continueCoop': 'Continue (2 players)',
   'online.title': 'Online co-op',
   'online.preparing': 'Preparing your invite…',
@@ -97,6 +97,9 @@ export const en = {
   'online.youAre': 'You are player {n}',
   'online.tryAgain': 'Try again',
   'online.qrHint': "Or scan with the other phone's camera",
+  'online.pasteInvite': 'Paste the invite link or code:',
+  'online.continueFrom': 'Continue from level {level} (${money})',
+  'online.startFresh': 'Start a new game',
   'online.hint': 'Works phone-to-phone with no server. Both players must keep the page open. Reply within a couple of minutes.',
 
   'orientation.hint': 'Rotate your device for a better view.',

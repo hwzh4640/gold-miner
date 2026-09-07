@@ -69,7 +69,7 @@ export const zhTW: Strings = {
   'menu.localCoop': '同螢幕雙人',
   'menu.localCoopHint': '點擊螢幕左半邊放玩家 1 的鉤子，右半邊放玩家 2 的鉤子。鍵盤：S / W 與 ↓ / ↑。',
   'menu.createOnline': '建立線上對局',
-  'menu.haveReply': '我有回覆碼',
+  'menu.joinCode': '用邀請碼加入',
   'menu.continueCoop': '繼續（雙人）',
   'online.title': '線上合作',
   'online.preparing': '正在產生邀請…',
@@ -99,6 +99,9 @@ export const zhTW: Strings = {
   'online.youAre': '你是玩家 {n}',
   'online.tryAgain': '再試一次',
   'online.qrHint': '或用另一支手機的相機掃描',
+  'online.pasteInvite': '貼上邀請連結或代碼：',
+  'online.continueFrom': '從第 {level} 關繼續（${money}）',
+  'online.startFresh': '開始新遊戲',
   'online.hint': '手機之間直接連線，不需伺服器。雙方都需保持頁面開啟，並在幾分鐘內完成回覆。',
 
   'orientation.hint': '橫向螢幕體驗更佳。',

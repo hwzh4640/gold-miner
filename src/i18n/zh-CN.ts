@@ -69,7 +69,7 @@ export const zhCN: Strings = {
   'menu.localCoop': '同屏双人',
   'menu.localCoopHint': '点击屏幕左半边放玩家 1 的钩子，右半边放玩家 2 的钩子。键盘：S / W 与 ↓ / ↑。',
   'menu.createOnline': '创建在线对局',
-  'menu.haveReply': '我有回复码',
+  'menu.joinCode': '用邀请码加入',
   'menu.continueCoop': '继续（双人）',
   'online.title': '在线合作',
   'online.preparing': '正在生成邀请…',
@@ -99,6 +99,9 @@ export const zhCN: Strings = {
   'online.youAre': '你是玩家 {n}',
   'online.tryAgain': '重试',
   'online.qrHint': '或用另一部手机的相机扫描',
+  'online.pasteInvite': '粘贴邀请链接或代码：',
+  'online.continueFrom': '从第 {level} 关继续（${money}）',
+  'online.startFresh': '开始新游戏',
   'online.hint': '手机之间直接连接，无需服务器。双方都需保持页面打开，并在几分钟内完成回复。',
 
   'orientation.hint': '横屏体验更佳。',
