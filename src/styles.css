@@ -60,13 +60,17 @@ html, body {
   padding: 10px 18px;
   font-size: 20px;
 }
-#dynamiteBtn {
+#dynamiteBtn, #dynamiteBtn2 {
   bottom: calc(var(--sab) + 18px);
   right: calc(var(--sar) + 18px);
   font-size: 22px;
   padding: 14px 20px;
   min-width: 96px;
 }
+/* Two players on one screen: P1 dynamite bottom-left, P2 bottom-right, pause bottom-centre. */
+body.two-local #dynamiteBtn { right: auto; left: calc(var(--sal) + 18px); }
+body.two-local #pauseBtn { left: 50%; transform: translateX(-50%); }
+body.two-local #pauseBtn:active { transform: translate(-50%, 2px); }
 .hidden { display: none !important; }
 
 /* Overlay screens */

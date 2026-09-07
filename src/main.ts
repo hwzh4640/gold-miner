@@ -14,6 +14,8 @@ setLang(detectLang(), false);
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const pauseBtn = document.getElementById('pauseBtn') as HTMLButtonElement;
 const dynamiteBtn = document.getElementById('dynamiteBtn') as HTMLButtonElement;
+const dynamiteBtn2 = document.getElementById('dynamiteBtn2') as HTMLButtonElement;
+import { WORLD_W } from './game/Level';
 const sfx = new Sfx();
 const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
 
@@ -71,10 +73,12 @@ const game = new Game({
 });
 
 const overlay = new Overlay(game, {
-  newGame: () => {
+  newGame: (players) => {
     sfx.unlock();
-    game.newGame();
+    game.newGame(players);
   },
+  createOnline: () => overlay.toast('Online play is coming in the next update.'),
+  haveReply: () => overlay.toast('Online play is coming in the next update.'),
   continueGame: (s) => {
     sfx.unlock();
     game.continueGame(s);
@@ -91,11 +95,25 @@ const overlay = new Overlay(game, {
 const renderer = new Renderer(canvas);
 
 function updateDynamiteBtn(): void {
+  const twoLocal = game.players.length === 2 && !game.isOnline;
+  document.body.classList.toggle('two-local', twoLocal);
   const show = game.state === 'playing' && game.buffs.dynamite > 0;
-  dynamiteBtn.classList.toggle('hidden', !show);
-  dynamiteBtn.innerHTML = `${ITEM_ICON.dynamite} <span>${game.buffs.dynamite}</span>`;
-  dynamiteBtn.title = t('hud.dynamite');
-  dynamiteBtn.setAttribute('aria-label', t('hud.dynamite'));
+  for (const [btn, visible] of [
+    [dynamiteBtn, show],
+    [dynamiteBtn2, show && twoLocal],
+  ] as const) {
+    btn.classList.toggle('hidden', !visible);
+    btn.innerHTML = `${ITEM_ICON.dynamite} <span>${game.buffs.dynamite}</span>`;
+    btn.title = t('hud.dynamite');
+    btn.setAttribute('aria-label', t('hud.dynamite'));
+  }
+}
+
+/** Which player a tap at this client position controls. */
+function playerForPointer(clientX: number): number {
+  if (game.players.length < 2) return 0;
+  if (game.isOnline) return game.localPlayer;
+  return renderer.toWorld(clientX, 0).x < WORLD_W / 2 ? 0 : 1;
 }
 
 /* ---------- Input ---------- */
@@ -103,35 +121,41 @@ function updateDynamiteBtn(): void {
 canvas.addEventListener('pointerdown', (ev) => {
   ev.preventDefault();
   sfx.unlock();
-  game.primary();
+  game.primary(playerForPointer(ev.clientX));
 });
 pauseBtn.addEventListener('click', () => game.pause());
-dynamiteBtn.addEventListener('click', () => game.useDynamite());
+dynamiteBtn.addEventListener('click', () => game.useDynamite(game.isOnline ? game.localPlayer : 0));
+dynamiteBtn2.addEventListener('click', () => game.useDynamite(1));
 
 window.addEventListener('keydown', (ev) => {
   if (ev.repeat) return;
   const tag = (ev.target as HTMLElement | null)?.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  const twoLocal = game.players.length === 2 && !game.isOnline;
+  const me = game.isOnline ? game.localPlayer : 0;
+  // Two players on one keyboard: P1 = S/A/Space fire, W dynamite; P2 = ↓/→ fire, ↑ dynamite.
+  const fireKeys: Record<string, number> = twoLocal
+    ? { Space: 0, KeyS: 0, KeyA: 0, Enter: 0, NumpadEnter: 0, ArrowDown: 1, ArrowRight: 1 }
+    : { Space: me, ArrowDown: me, Enter: me, NumpadEnter: me };
+  const dynKeys: Record<string, number> = twoLocal ? { KeyW: 0, ArrowUp: 1 } : { ArrowUp: me, KeyD: me };
+  if (ev.code in fireKeys) {
+    if (game.state === 'playing' || game.state === 'levelIntro') {
+      ev.preventDefault();
+      sfx.unlock();
+      game.primary(fireKeys[ev.code]);
+    } else if (game.state === 'paused' && ev.code !== 'Enter') {
+      game.resume();
+    }
+    return;
+  }
+  if (ev.code in dynKeys) {
+    if (game.state === 'playing') {
+      ev.preventDefault();
+      game.useDynamite(dynKeys[ev.code]);
+    }
+    return;
+  }
   switch (ev.code) {
-    case 'Space':
-    case 'ArrowDown':
-    case 'Enter':
-    case 'NumpadEnter':
-      if (game.state === 'playing' || game.state === 'levelIntro') {
-        ev.preventDefault();
-        sfx.unlock();
-        game.primary();
-      } else if (game.state === 'paused' && ev.code !== 'Enter') {
-        game.resume();
-      }
-      break;
-    case 'ArrowUp':
-    case 'KeyD':
-      if (game.state === 'playing') {
-        ev.preventDefault();
-        game.useDynamite();
-      }
-      break;
     case 'KeyP':
     case 'Escape':
       if (game.state === 'playing') game.pause();

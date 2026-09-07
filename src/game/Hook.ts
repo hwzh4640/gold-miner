@@ -32,6 +32,8 @@ export function retractSpeed(weight: number, reelMultiplier: number): number {
 }
 
 export class Hook {
+  /** Horizontal position of the winch; two-player games place the hooks side by side. */
+  pivotX = PIVOT_X;
   phase: HookPhase = 'swing';
   /** Angle from straight down; positive = towards the right. */
   angle = 0;
@@ -53,7 +55,7 @@ export class Hook {
   }
 
   get tipX(): number {
-    return PIVOT_X + Math.sin(this.angle) * this.length;
+    return this.pivotX + Math.sin(this.angle) * this.length;
   }
   get tipY(): number {
     return PIVOT_Y + Math.cos(this.angle) * this.length;
@@ -63,6 +65,24 @@ export class Hook {
     if (this.phase !== 'swing') return false;
     this.phase = 'extend';
     return true;
+  }
+
+  /**
+   * Fire at an explicit angle (used for a remote player, whose displayed angle is
+   * authoritative so latency never spoils their aim). The pendulum clock is re-phased
+   * so the swing continues smoothly from that angle afterwards.
+   */
+  fireAt(angle: number): boolean {
+    if (this.phase !== 'swing') return false;
+    const a = Math.max(-SWING_AMPLITUDE, Math.min(SWING_AMPLITUDE, angle));
+    // Keep the current direction of travel: pick the solution of sin() on the same half-cycle.
+    const cur = (this.swingT / this.swingPeriod) % 1;
+    const goingRight = cur < 0.25 || cur >= 0.75;
+    let phase = Math.asin(a / SWING_AMPLITUDE) / (Math.PI * 2); // in [-0.25, 0.25]
+    if (!goingRight) phase = 0.5 - phase;
+    this.swingT = ((phase + 1) % 1) * this.swingPeriod;
+    this.angle = a;
+    return this.fire();
   }
 
   /** Blow up whatever is on the hook. Returns the destroyed entity or null. */
@@ -113,7 +133,7 @@ export class Hook {
         if (this.grabbed) {
           // Item hangs a bit below the hook tip.
           const r = ITEM_SPECS[this.grabbed.kind].radius;
-          this.grabbed.x = PIVOT_X + Math.sin(this.angle) * (this.length + r * 0.8);
+          this.grabbed.x = this.pivotX + Math.sin(this.angle) * (this.length + r * 0.8);
           this.grabbed.y = PIVOT_Y + Math.cos(this.angle) * (this.length + r * 0.8);
         }
         if (this.length <= MIN_LENGTH) {

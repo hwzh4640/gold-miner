@@ -1,6 +1,6 @@
 import type { ItemId } from './Shop';
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 export const STORAGE_KEY = 'goldminer.save';
 export const HASH_PREFIX = '#g=';
 
@@ -12,13 +12,15 @@ export interface SaveState {
   money: number;
   /** Consumables owned for the upcoming level. */
   inventory: ItemId[];
+  /** 1 = solo, 2 = co-op (local or online). */
+  players: 1 | 2;
 }
 
 /** Order defines the bit position in the inventory bitmask. Never reorder; append only. */
 export const ITEM_ORDER: readonly ItemId[] = ['dynamite', 'drink', 'rockBook', 'polish', 'clover'];
 
-export function newSave(seed: number): SaveState {
-  return { v: SAVE_VERSION, seed, level: 1, money: 0, inventory: [] };
+export function newSave(seed: number, players: 1 | 2 = 1): SaveState {
+  return { v: SAVE_VERSION, seed, level: 1, money: 0, inventory: [], players };
 }
 
 function inventoryToMask(inv: ItemId[]): number {
@@ -67,42 +69,45 @@ function checksum(bytes: Uint8Array, len: number): number {
   return c;
 }
 
+const FLAG_COOP = 1;
+
 /**
- * Binary layout (13 bytes, big-endian):
- *   [0]      version
- *   [1..4]   seed (u32)
- *   [5]      level (u8)
- *   [6..9]   money (u32)
- *   [10..11] inventory mask (u16)
- *   [12]     checksum of bytes 0..11
+ * Binary layout, big-endian.
+ *   v1 (13 bytes):        [0] version, [1..4] seed u32, [5] level u8, [6..9] money u32,
+ *                         [10..11] inventory mask u16, [12] checksum of bytes 0..11
+ *   v2 (14 bytes): as v1 plus [12] flags u8 (bit 0 = two players), [13] checksum of 0..12
  */
 export function encodeSave(s: SaveState): string {
-  const bytes = new Uint8Array(13);
+  const bytes = new Uint8Array(14);
   const dv = new DataView(bytes.buffer);
-  dv.setUint8(0, s.v);
+  dv.setUint8(0, SAVE_VERSION);
   dv.setUint32(1, s.seed >>> 0);
   dv.setUint8(5, Math.max(1, Math.min(255, s.level)));
   dv.setUint32(6, Math.max(0, Math.min(0xffffffff, Math.floor(s.money))));
   dv.setUint16(10, inventoryToMask(s.inventory));
-  dv.setUint8(12, checksum(bytes, 12));
+  dv.setUint8(12, s.players === 2 ? FLAG_COOP : 0);
+  dv.setUint8(13, checksum(bytes, 13));
   return toBase64Url(bytes);
 }
 
 export function decodeSave(code: string): SaveState | null {
   const bytes = fromBase64Url(code.trim());
-  if (!bytes || bytes.length !== 13) return null;
-  if (checksum(bytes, 12) !== bytes[12]) return null;
+  if (!bytes) return null;
+  const v = bytes[0];
+  const len = v === 1 ? 13 : v === 2 ? 14 : -1;
+  if (len < 0 || bytes.length !== len) return null;
+  if (checksum(bytes, len - 1) !== bytes[len - 1]) return null;
   const dv = new DataView(bytes.buffer);
-  const v = dv.getUint8(0);
-  if (v !== SAVE_VERSION) return null;
   const level = dv.getUint8(5);
   if (level < 1) return null;
+  const flags = v === 2 ? dv.getUint8(12) : 0;
   return {
-    v,
+    v: SAVE_VERSION,
     seed: dv.getUint32(1),
     level,
     money: dv.getUint32(6),
     inventory: maskToInventory(dv.getUint16(10)),
+    players: flags & FLAG_COOP ? 2 : 1,
   };
 }
 

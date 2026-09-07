@@ -1,4 +1,4 @@
-import { Hook, swingPeriodForLevel } from './Hook';
+import { Hook, PIVOT_X, swingPeriodForLevel } from './Hook';
 import { generateLevel, itemValue, LEVEL_SECONDS, WORLD_W, type LevelData } from './Level';
 import { ITEM_SPECS, isMole, isRock, type Entity } from './entities';
 import { Rng, subSeed, randomSeed } from './rng';
@@ -21,11 +21,11 @@ export type BagOutcome = { type: 'cash'; amount: number } | { type: 'item'; item
 
 export interface GameEvents {
   onStateChange(state: GameState): void;
-  onCash(entity: Entity, amount: number): void;
-  onBag(outcome: BagOutcome): void;
-  onFire(): void;
-  onGrab(entity: Entity): void;
-  onDynamite(): void;
+  onCash(entity: Entity, amount: number, player: number): void;
+  onBag(outcome: BagOutcome, player: number): void;
+  onFire(player: number): void;
+  onGrab(entity: Entity, player: number): void;
+  onDynamite(player: number): void;
   onTick(secondsLeft: number): void;
 }
 
@@ -39,18 +39,66 @@ const noop: GameEvents = {
   onTick() {},
 };
 
-export class Game {
+/** Where the winches sit for 1 or 2 players. */
+export const PIVOTS: Record<1 | 2, number[]> = { 1: [PIVOT_X], 2: [WORLD_W * 0.3, WORLD_W * 0.7] };
+
+export interface Player {
+  index: number;
+  hook: Hook;
+  /** Money this player earned in the current attempt. */
+  levelMoney: number;
+}
+
+/** Popup colours per player so it is obvious who cashed what. */
+export const PLAYER_COLORS = ['#ffe86b', '#9be7ff'];
+
+/**
+ * Everything the renderer and overlays need to draw a game. Implemented by `Game`
+ * (local/host) and by the guest's `RemoteGame`, which mirrors the host over the network.
+ */
+export interface GameView {
+  state: GameState;
+  save: SaveState;
+  level: LevelData;
+  players: Player[];
+  buffs: LevelBuffs;
+  timeLeft: number;
+  popups: Popup[];
+  offers: ShopOffer[];
+  lastResultCleared: boolean;
+  readonly money: number;
+  /** Which local player index this device controls by default (guest = 1). */
+  readonly localPlayer: number;
+  readonly isOnline: boolean;
+  readonly isHost: boolean;
+  owns(id: ItemId): boolean;
+  canBuy(offer: ShopOffer): boolean;
+  // Controller actions (guest implementations forward these to the host).
+  primary(player?: number): void;
+  useDynamite(player?: number): boolean;
+  pause(): void;
+  resume(): void;
+  restartLevel(): void;
+  quitToMenu(): void;
+  openShop(): void;
+  buy(offer: ShopOffer): boolean;
+  nextLevel(): void;
+  frame(dt: number): void;
+}
+
+export class Game implements GameView {
   state: GameState = 'menu';
   save: SaveState = newSave(0);
   level: LevelData = { level: 1, goal: 0, entities: [] };
-  hook = new Hook();
+  players: Player[] = [{ index: 0, hook: new Hook(), levelMoney: 0 }];
   buffs: LevelBuffs = buffsFromInventory([]);
-  /** Money earned in the current attempt (save.money is the value at level start). */
-  levelMoney = 0;
   timeLeft = LEVEL_SECONDS;
   popups: Popup[] = [];
   offers: ShopOffer[] = [];
   lastResultCleared = false;
+  readonly localPlayer = 0;
+  readonly isHost = true;
+  isOnline = false;
   private levelRng = new Rng(0);
   private lastWholeSecond = LEVEL_SECONDS;
   private acc = 0;
@@ -58,6 +106,20 @@ export class Game {
 
   constructor(events: Partial<GameEvents> = {}) {
     this.events = { ...noop, ...events };
+  }
+
+  /** Convenience for single-player code paths and tests. */
+  get hook(): Hook {
+    return this.players[0]!.hook;
+  }
+
+  /** Money earned in the current attempt by all players. */
+  get levelMoney(): number {
+    return this.players.reduce((s, p) => s + p.levelMoney, 0);
+  }
+  set levelMoney(v: number) {
+    this.players[0]!.levelMoney = v;
+    for (let i = 1; i < this.players.length; i++) this.players[i]!.levelMoney = 0;
   }
 
   get money(): number {
@@ -69,16 +131,25 @@ export class Game {
     this.events.onStateChange(s);
   }
 
+  private setPlayerCount(n: 1 | 2): void {
+    const pivots = PIVOTS[n];
+    this.players = pivots.map((px, i) => {
+      const hook = this.players[i]?.hook ?? new Hook();
+      hook.pivotX = px;
+      return { index: i, hook, levelMoney: 0 };
+    });
+  }
+
   /* ---------- Flow ---------- */
 
-  newGame(): void {
-    this.save = newSave(randomSeed());
+  newGame(players: 1 | 2 = 1): void {
+    this.save = newSave(randomSeed(), players);
     persistSave(this.save);
     this.loadLevel();
   }
 
-  continueGame(save: SaveState): void {
-    this.save = { ...save, inventory: [...save.inventory] };
+  continueGame(save: SaveState, players?: 1 | 2): void {
+    this.save = { ...save, inventory: [...save.inventory], players: players ?? save.players ?? 1 };
     persistSave(this.save);
     this.loadLevel();
   }
@@ -89,13 +160,16 @@ export class Game {
 
   /** Prepare the current save.level and show the intro card. */
   loadLevel(): void {
-    this.level = generateLevel(this.save.seed, this.save.level);
+    this.setPlayerCount(this.save.players);
+    this.level = generateLevel(this.save.seed, this.save.level, this.save.players);
     this.levelRng = new Rng(subSeed(this.save.seed, 500_000 + this.save.level));
     this.buffs = buffsFromInventory(this.save.inventory);
-    this.hook.reset();
-    this.hook.swingPeriod = swingPeriodForLevel(this.save.level);
-    this.hook.reelMultiplier = this.buffs.reelMultiplier;
-    this.levelMoney = 0;
+    for (const p of this.players) {
+      p.hook.reset();
+      p.hook.swingPeriod = swingPeriodForLevel(this.save.level);
+      p.hook.reelMultiplier = this.buffs.reelMultiplier;
+      p.levelMoney = 0;
+    }
     this.timeLeft = LEVEL_SECONDS;
     this.lastWholeSecond = LEVEL_SECONDS;
     this.popups = [];
@@ -125,7 +199,7 @@ export class Game {
     this.lastResultCleared = cleared;
     if (cleared) {
       this.save.money = this.money;
-      this.levelMoney = 0;
+      for (const p of this.players) p.levelMoney = 0;
       this.save.inventory = []; // consumables are spent
       this.offers = shopOffers(this.save.seed, this.save.level);
       persistSave(this.save);
@@ -167,21 +241,29 @@ export class Game {
 
   /* ---------- Input ---------- */
 
-  /** Primary action: start level, or fire the hook. */
-  primary(): void {
+  /** Primary action for a player: start the level, or fire that player's hook. */
+  primary(player = 0): void {
     if (this.state === 'levelIntro') {
       this.startLevel();
       return;
     }
-    if (this.state === 'playing' && this.hook.fire()) this.events.onFire();
+    const p = this.players[player];
+    if (this.state === 'playing' && p && p.hook.fire()) this.events.onFire(player);
   }
 
-  useDynamite(): boolean {
-    if (this.state !== 'playing' || this.buffs.dynamite <= 0) return false;
-    const e = this.hook.dynamite();
+  /** Fire a player's hook at an explicit angle (remote players report the angle they saw). */
+  fireAt(player: number, angle: number): void {
+    const p = this.players[player];
+    if (this.state === 'playing' && p && p.hook.fireAt(angle)) this.events.onFire(player);
+  }
+
+  useDynamite(player = 0): boolean {
+    const p = this.players[player];
+    if (this.state !== 'playing' || this.buffs.dynamite <= 0 || !p) return false;
+    const e = p.hook.dynamite();
     if (!e) return false;
     this.buffs.dynamite -= 1;
-    this.events.onDynamite();
+    this.events.onDynamite(player);
     this.popups.push({ x: e.x, y: e.y, text: 'BOOM!', color: '#ff5a2a', age: 0, life: 0.8 });
     return true;
   }
@@ -204,7 +286,7 @@ export class Game {
     this.popups = this.popups.filter((p) => p.age < p.life);
 
     if (this.state === 'levelIntro') {
-      this.hook.update(dt, []);
+      for (const p of this.players) p.hook.update(dt, []);
       return;
     }
     if (this.state !== 'playing') return;
@@ -218,12 +300,14 @@ export class Game {
 
     this.moveMoles(dt);
 
-    const cashed = this.hook.update(dt, this.level.entities);
-    if (this.hook.justGrabbed) {
-      this.events.onGrab(this.hook.justGrabbed);
-      this.hook.justGrabbed = null;
+    for (const p of this.players) {
+      const cashed = p.hook.update(dt, this.level.entities);
+      if (p.hook.justGrabbed) {
+        this.events.onGrab(p.hook.justGrabbed, p.index);
+        p.hook.justGrabbed = null;
+      }
+      if (cashed) this.cash(cashed, p);
     }
-    if (cashed) this.cash(cashed);
 
     if (this.timeLeft <= 0) {
       this.timeLeft = 0;
@@ -246,21 +330,21 @@ export class Game {
     }
   }
 
-  private cash(e: Entity): void {
+  private cash(e: Entity, p: Player): void {
     if (e.kind === 'bag') {
-      this.openBag(e);
+      this.openBag(e, p);
       return;
     }
     let value = itemValue(e.kind, this.save.level);
     if (isRock(e.kind)) value = Math.round(value * this.buffs.rockMultiplier);
     if (e.kind === 'diamond') value = Math.round(value * this.buffs.diamondMultiplier);
     if (e.kind === 'moleDiamond') value = Math.round(itemValue('mole', this.save.level) + itemValue('diamond', this.save.level) * this.buffs.diamondMultiplier);
-    this.levelMoney += value;
-    this.popups.push({ x: e.x, y: e.y - 30, text: `+$${value}`, color: '#ffe86b', age: 0, life: 1.1 });
-    this.events.onCash(e, value);
+    p.levelMoney += value;
+    this.popups.push({ x: e.x, y: e.y - 30, text: `+$${value}`, color: PLAYER_COLORS[p.index] ?? '#fff', age: 0, life: 1.1 });
+    this.events.onCash(e, value, p.index);
   }
 
-  private openBag(e: Entity): void {
+  private openBag(e: Entity, p: Player): void {
     const rng = this.levelRng;
     const lucky = this.buffs.luckyBags;
     let outcome: BagOutcome;
@@ -276,18 +360,18 @@ export class Game {
       outcome = { type: 'cash', amount };
     }
     if (outcome.type === 'cash') {
-      this.levelMoney += outcome.amount;
-      this.popups.push({ x: e.x, y: e.y - 30, text: `+$${outcome.amount}`, color: '#ffe86b', age: 0, life: 1.2 });
+      p.levelMoney += outcome.amount;
+      this.popups.push({ x: e.x, y: e.y - 30, text: `+$${outcome.amount}`, color: PLAYER_COLORS[p.index] ?? '#fff', age: 0, life: 1.2 });
     } else if (outcome.type === 'item') {
       // Bag items apply immediately for the rest of this level and are consumed with it.
       if (outcome.item === 'dynamite') this.buffs.dynamite += 1;
       else if (outcome.item === 'drink') {
         this.buffs.reelMultiplier = 1.5;
-        this.hook.reelMultiplier = 1.5;
+        for (const pl of this.players) pl.hook.reelMultiplier = 1.5;
       } else if (outcome.item === 'rockBook') this.buffs.rockMultiplier = 3;
       else if (outcome.item === 'polish') this.buffs.diamondMultiplier = 1.5;
       else if (outcome.item === 'clover') this.buffs.luckyBags = true;
     }
-    this.events.onBag(outcome);
+    this.events.onBag(outcome, p.index);
   }
 }

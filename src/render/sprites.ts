@@ -227,7 +227,11 @@ export function drawEntity(ctx: Ctx, e: Entity, t: number): void {
 }
 
 /** The miner with a winch, drawn at the pivot point. `spin` rotates the reel. */
-export function drawMiner(ctx: Ctx, px: number, py: number, spin: number, phase: string): void {
+export function drawMiner(ctx: Ctx, px: number, py: number, spin: number, phase: string, player = 0): void {
+  const shirt = player === 1 ? '#3f7fbf' : '#b97b3f';
+  const shirtDark = player === 1 ? '#234a73' : '#6b4520';
+  const hat = player === 1 ? '#4a6b8a' : '#c98a3a';
+  const hatBand = player === 1 ? '#22364a' : '#5a3a1a';
   ctx.save();
   ctx.translate(px, py);
   // Ledge / platform
@@ -253,15 +257,15 @@ export function drawMiner(ctx: Ctx, px: number, py: number, spin: number, phase:
   ctx.fill();
 
   // Torso
-  ctx.fillStyle = '#b97b3f';
-  ctx.strokeStyle = '#6b4520';
+  ctx.fillStyle = shirt;
+  ctx.strokeStyle = shirtDark;
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.roundRect(-14, -46, 40, 54, 10);
   ctx.fill();
   ctx.stroke();
   // Suspenders
-  ctx.strokeStyle = '#6b4520';
+  ctx.strokeStyle = shirtDark;
   ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.moveTo(-6, -44);
@@ -273,7 +277,7 @@ export function drawMiner(ctx: Ctx, px: number, py: number, spin: number, phase:
   // Arm to the crank handle (rotates with the reel)
   const hx = -58 + Math.cos(crank) * 22;
   const hy = -6 + Math.sin(crank) * 22;
-  ctx.strokeStyle = '#b97b3f';
+  ctx.strokeStyle = shirt;
   ctx.lineWidth = 11;
   ctx.beginPath();
   ctx.moveTo(-8, -30);
@@ -350,8 +354,8 @@ export function drawMiner(ctx: Ctx, px: number, py: number, spin: number, phase:
   ctx.stroke();
 
   // Hat: wide brim + tall crown with a band
-  ctx.fillStyle = '#c98a3a';
-  ctx.strokeStyle = '#6b4520';
+  ctx.fillStyle = hat;
+  ctx.strokeStyle = shirtDark;
   ctx.lineWidth = 2.5;
   ctx.beginPath();
   ctx.ellipse(4, -88, 34, 8, 0, 0, Math.PI * 2);
@@ -365,7 +369,7 @@ export function drawMiner(ctx: Ctx, px: number, py: number, spin: number, phase:
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
-  ctx.fillStyle = '#5a3a1a';
+  ctx.fillStyle = hatBand;
   ctx.beginPath();
   ctx.rect(-16, -98, 40, 7);
   ctx.fill();

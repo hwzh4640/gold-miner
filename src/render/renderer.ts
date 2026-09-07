@@ -1,5 +1,5 @@
-import type { Game } from '../game/Game';
-import { PIVOT_X, PIVOT_Y } from '../game/Hook';
+import { PLAYER_COLORS, type GameView } from '../game/Game';
+import { PIVOT_Y } from '../game/Hook';
 import { GROUND_Y, WORLD_H, WORLD_W } from '../game/Level';
 import { formatMoney, t } from '../i18n';
 import { drawClaw, drawEntity, drawMiner } from './sprites';
@@ -12,7 +12,7 @@ export class Renderer {
   offsetX = 0;
   offsetY = 0;
   private bg: HTMLCanvasElement | null = null;
-  private reelSpin = 0;
+  private reelSpin: number[] = [0, 0];
   private time = 0;
 
   constructor(private canvas: HTMLCanvasElement) {
@@ -108,7 +108,7 @@ export class Renderer {
     return c;
   }
 
-  draw(game: Game, dt: number): void {
+  draw(game: GameView, dt: number): void {
     this.time += dt;
     const ctx = this.ctx;
     const { canvas } = this;
@@ -126,22 +126,37 @@ export class Renderer {
 
     const showWorld = game.state !== 'menu';
     if (showWorld) {
+      const grabbed = new Set(game.players.map((p) => p.hook.grabbed));
       for (const e of game.level.entities) {
-        if (e.taken && e !== game.hook.grabbed) continue;
+        if (e.taken && !grabbed.has(e)) continue;
         drawEntity(ctx, e, this.time);
       }
-      // Rope
-      const hook = game.hook;
-      ctx.strokeStyle = '#2a2a2a';
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(PIVOT_X, PIVOT_Y);
-      ctx.lineTo(hook.tipX, hook.tipY);
-      ctx.stroke();
-      if (hook.phase === 'retract') this.reelSpin += dt * 10;
-      else if (hook.phase === 'extend') this.reelSpin -= dt * 10;
-      drawMiner(ctx, PIVOT_X, PIVOT_Y, this.reelSpin, hook.phase);
-      drawClaw(ctx, hook.tipX, hook.tipY, hook.angle, hook.grabbed ? 0 : 1);
+      for (const p of game.players) {
+        const hook = p.hook;
+        // Rope
+        ctx.strokeStyle = '#2a2a2a';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(hook.pivotX, PIVOT_Y);
+        ctx.lineTo(hook.tipX, hook.tipY);
+        ctx.stroke();
+        let spin = this.reelSpin[p.index] ?? 0;
+        if (hook.phase === 'retract') spin += dt * 10;
+        else if (hook.phase === 'extend') spin -= dt * 10;
+        this.reelSpin[p.index] = spin;
+        drawMiner(ctx, hook.pivotX, PIVOT_Y, spin, hook.phase, p.index);
+        drawClaw(ctx, hook.tipX, hook.tipY, hook.angle, hook.grabbed ? 0 : 1);
+        // Local-player marker in two-player games
+        if (game.players.length > 1 && p.index === game.localPlayer && game.isOnline) {
+          ctx.fillStyle = PLAYER_COLORS[p.index] ?? '#fff';
+          ctx.beginPath();
+          ctx.moveTo(hook.pivotX - 10, PIVOT_Y - 132);
+          ctx.lineTo(hook.pivotX + 10, PIVOT_Y - 132);
+          ctx.lineTo(hook.pivotX, PIVOT_Y - 118);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
 
       for (const p of game.popups) {
         const k = p.age / p.life;
@@ -161,7 +176,7 @@ export class Renderer {
     ctx.restore();
   }
 
-  private drawHud(game: Game): void {
+  private drawHud(game: GameView): void {
     const ctx = this.ctx;
     ctx.textBaseline = 'top';
     const label = (txt: string, x: number, y: number, align: CanvasTextAlign = 'left') => {
@@ -179,21 +194,43 @@ export class Renderer {
       ctx.fillStyle = color;
       ctx.fillText(txt, x, y);
     };
-    // Left: money + goal
-    label(t('hud.money'), 40, 18);
-    value(formatMoney(game.money), 150, 12, game.money >= game.level.goal ? '#1c8f2e' : '#1a7b2a');
-    label(t('hud.goal'), 40, 68);
-    value(formatMoney(game.level.goal), 150, 62, '#b8420c');
-    // Right: time + level
-    const rx = WORLD_W - 40;
-    label(t('hud.time'), rx - 150, 18, 'right');
     const secs = Math.ceil(game.timeLeft);
-    value(String(secs), rx, 12, secs <= 10 ? '#d21f1f' : '#b8420c', 'right');
-    label(t('hud.level'), rx - 150, 68, 'right');
-    value(String(game.save.level), rx, 62, '#b8420c', 'right');
-    // Dynamite count near the miner
+    const moneyColor = game.money >= game.level.goal ? '#1c8f2e' : '#1a7b2a';
+    const rx = WORLD_W - 40;
+    let dynX = (game.players[0]?.hook.pivotX ?? WORLD_W / 2) + 130;
+    if (game.players.length === 1) {
+      // Left: money + goal
+      label(t('hud.money'), 40, 18);
+      value(formatMoney(game.money), 150, 12, moneyColor);
+      label(t('hud.goal'), 40, 68);
+      value(formatMoney(game.level.goal), 150, 62, '#b8420c');
+      // Right: time + level
+      label(t('hud.time'), rx - 150, 18, 'right');
+      value(String(secs), rx, 12, secs <= 10 ? '#d21f1f' : '#b8420c', 'right');
+      label(t('hud.level'), rx - 150, 68, 'right');
+      value(String(game.save.level), rx, 62, '#b8420c', 'right');
+    } else {
+      // Two players: each player's own money at their edge, shared total + goal in the middle,
+      // time and level in the middle band above the winches.
+      const [p1, p2] = game.players;
+      label(t('hud.player', { n: 1 }), 40, 18);
+      value(formatMoney(p1?.levelMoney ?? 0), 40, 50, '#1a7b2a');
+      label(t('hud.player', { n: 2 }), rx, 18, 'right');
+      value(formatMoney(p2?.levelMoney ?? 0), rx, 50, '#1a7b2a', 'right');
+      const cx = WORLD_W / 2;
+      label(`${t('hud.money')}`, cx - 12, 8, 'right');
+      value(formatMoney(game.money), cx + 12, 2, moneyColor, 'left');
+      label(`${t('hud.goal')}`, cx - 12, 48, 'right');
+      value(formatMoney(game.level.goal), cx + 12, 42, '#b8420c', 'left');
+      ctx.font = `600 22px ${FONT}`;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = secs <= 10 ? '#d21f1f' : '#5a3a12';
+      ctx.fillText(`${t('hud.time')} ${secs}   ·   ${t('hud.level')} ${game.save.level}`, cx, 92);
+      dynX = (p1?.hook.pivotX ?? 0) - 200;
+    }
+    // Dynamite count
     if (game.buffs.dynamite > 0) {
-      const x = PIVOT_X + 130;
+      const x = dynX;
       const y = 28;
       ctx.fillStyle = '#d8321f';
       ctx.strokeStyle = '#7a1a10';

@@ -93,3 +93,24 @@ describe('Hook', () => {
     expect(cashed).toBeNull();
   });
 });
+
+describe('Hook.fireAt', () => {
+  it('re-phases the pendulum so the swing continues smoothly from the fired angle', () => {
+    const h = new Hook();
+    h.swingPeriod = 2;
+    for (let i = 0; i < 30; i++) h.update(1 / 60, []);
+    expect(h.fireAt(0.9)).toBe(true);
+    expect(h.angle).toBeCloseTo(0.9);
+    // Reel all the way back with nothing hooked, then the next swing step must start near 0.9.
+    let steps = 0;
+    while (h.phase !== 'swing' && steps++ < 5000) h.update(1 / 60, []);
+    h.update(1 / 600, []);
+    expect(Math.abs(h.angle - 0.9)).toBeLessThan(0.05);
+  });
+
+  it('clamps to the swing amplitude', () => {
+    const h = new Hook();
+    h.fireAt(5);
+    expect(h.angle).toBeCloseTo(SWING_AMPLITUDE);
+  });
+});

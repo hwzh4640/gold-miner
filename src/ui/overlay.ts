@@ -1,12 +1,14 @@
-import type { Game } from '../game/Game';
+import type { GameView } from '../game/Game';
 import { type SaveState, shareUrl } from '../game/save';
 import { formatMoney, getLang, LANG_NAMES, LANGS, setLang, t, type Lang, type StringKey } from '../i18n';
 
 import { ITEM_ICON } from './icons';
 
 export interface OverlayActions {
-  newGame(): void;
+  newGame(players: 1 | 2): void;
   continueGame(save: SaveState): void;
+  createOnline(): void;
+  haveReply(): void;
   toggleSound(): boolean;
   isMuted(): boolean;
   isTouch(): boolean;
@@ -34,7 +36,7 @@ export class Overlay {
   private current: (() => void) | null = null;
   pendingSave: SaveState | null = null;
 
-  constructor(private game: Game, private actions: OverlayActions) {
+  constructor(private game: GameView, private actions: OverlayActions) {
     this.root = document.getElementById('overlay')!;
     this.toastEl = document.getElementById('toast')!;
     document.getElementById('orientation')!.textContent = t('orientation.hint');
@@ -104,14 +106,21 @@ export class Overlay {
       p.appendChild(el('h1', undefined, t('app.title')));
       const s = this.pendingSave;
       if (s) {
-        p.appendChild(button(t('menu.continue'), 'primary', () => this.actions.continueGame(s)));
+        p.appendChild(button(s.players === 2 ? t('menu.continueCoop') : t('menu.continue'), 'primary', () => this.actions.continueGame(s)));
         p.appendChild(el('p', 'muted', t('menu.continueInfo', { level: s.level, money: s.money })));
       }
-      p.appendChild(button(t('menu.newGame'), s ? '' : 'primary', () => this.actions.newGame()));
+      p.appendChild(button(t('menu.newGame'), s ? '' : 'primary', () => this.actions.newGame(1)));
+      p.appendChild(el('h2', undefined, t('menu.twoPlayers'))).style.marginTop = '16px';
+      const two = el('div', 'row');
+      two.appendChild(button(t('menu.localCoop'), 'secondary', () => this.actions.newGame(2)));
+      two.appendChild(button(t('menu.createOnline'), 'secondary', () => this.actions.createOnline()));
+      two.appendChild(button(t('menu.haveReply'), 'secondary', () => this.actions.haveReply()));
+      p.appendChild(two);
       const how = el('p', 'muted');
       how.textContent = this.actions.isTouch() ? t('menu.howToMobile') : t('menu.howToDesktop');
-      p.appendChild(el('h2', undefined, t('menu.howTo'))).style.marginTop = '18px';
+      p.appendChild(el('h2', undefined, t('menu.howTo'))).style.marginTop = '16px';
       p.appendChild(how);
+      p.appendChild(el('p', 'muted', t('menu.localCoopHint')));
       const row = el('div', 'row');
       row.appendChild(this.soundButton());
       p.appendChild(row);
@@ -192,7 +201,7 @@ export class Overlay {
       p.appendChild(el('p', undefined, t('gameover.summary', { level: g.save.level, money: g.money.toLocaleString('en-US') })));
       p.appendChild(button(t('level.retry'), 'primary', () => g.restartLevel()));
       const row = el('div', 'row');
-      row.appendChild(button(t('menu.newGame'), 'secondary', () => this.actions.newGame()));
+      row.appendChild(button(t('menu.newGame'), 'secondary', () => this.actions.newGame(g.save.players)));
       row.appendChild(button(t('pause.quit'), 'secondary', () => g.quitToMenu()));
       p.appendChild(row);
     });

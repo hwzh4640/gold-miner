@@ -8,10 +8,14 @@ export const GROUND_Y = 150;
 export const LEVEL_SECONDS = 60;
 
 /** Money required to clear level n. Classic curve: $650, $1150, $2150, $3650, $5650, ... */
-export function levelGoal(level: number): number {
+export function levelGoal(level: number, players = 1): number {
   const n = level - 1;
-  return 650 + 250 * n * (n + 1);
+  const base = 650 + 250 * n * (n + 1);
+  // Two hooks collect much faster; co-op shares one goal, so raise it to keep it a challenge.
+  return players >= 2 ? Math.round((base * COOP_GOAL_MULTIPLIER) / 50) * 50 : base;
 }
+
+export const COOP_GOAL_MULTIPLIER = 1.6;
 
 /**
  * The classic goal curve is quadratic but a 60-second level only allows ~10-12 grabs, so
@@ -100,7 +104,7 @@ export interface LevelData {
   entities: Entity[];
 }
 
-export function generateLevel(seed: number, level: number): LevelData {
+export function generateLevel(seed: number, level: number, players = 1): LevelData {
   const rng = new Rng(subSeed(seed, level));
   const kinds = roster(level, rng);
   const placed = place(kinds, rng);
@@ -114,7 +118,7 @@ export function generateLevel(seed: number, level: number): LevelData {
     vx: p.kind === 'mole' || p.kind === 'moleDiamond' ? (rng.chance(0.5) ? 1 : -1) * rng.range(60, 110) : 0,
     taken: false,
   }));
-  return { level, goal: levelGoal(level), entities };
+  return { level, goal: levelGoal(level, players), entities };
 }
 
 export function totalValue(entities: readonly Entity[], level: number): number {
