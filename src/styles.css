@@ -204,3 +204,8 @@ body.two-local #pauseBtn:active { transform: translate(-50%, 2px); }
   .panel { padding: 16px 14px; }
   .btn { min-width: 130px; }
 }
+
+.qr { width: min(200px, 55vw); margin: 10px auto 0; background: #fff; padding: 6px; border-radius: 10px; border: 2px solid #d9b26f; }
+.qr svg { display: block; width: 100%; height: auto; }
+.room-code { font: 800 clamp(34px, 8vw, 52px) monospace; letter-spacing: 0.25em; color: #b8420c; margin: 2px 0 8px; -webkit-user-select: text; user-select: text; }
+.code-input { font: 700 26px monospace !important; letter-spacing: 0.2em; text-transform: uppercase; text-align: center; }

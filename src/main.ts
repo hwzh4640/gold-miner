@@ -3,12 +3,15 @@ import { registerSW } from 'virtual:pwa-register';
 import { Game, type BagOutcome, type GameEvents, type GameState, type GameView } from './game/Game';
 import { ITEM_SPECS, isRock } from './game/entities';
 import { WORLD_W } from './game/Level';
-import { clearStoredSave, persistSave, pickSave, readSaveFromHash, readSaveFromStorage } from './game/save';
+import { clearStoredSave, persistSave, pickSave, readSaveFromHash, readSaveFromStorage, type SaveState } from './game/save';
 import { detectLang, onLangChange, setLang, t, type StringKey } from './i18n';
 import { Renderer } from './render/renderer';
 import { Overlay } from './ui/overlay';
 import { Sfx } from './audio/sfx';
 import { ITEM_ICON, PAUSE_ICON } from './ui/icons';
+import { HostSession } from './net/HostSession';
+import { RemoteGame } from './net/RemoteGame';
+import { RelayLink, createRoom, relayConfigured, roomInfo, roomLink } from './net/RelayLink';
 
 setLang(detectLang(), false);
 
@@ -26,6 +29,7 @@ const uiEvents: GameEvents = {
     pauseBtn.classList.toggle('hidden', state !== 'playing');
     switch (state) {
       case 'menu':
+        endOnline();
         overlay.pendingSave = view.save.level > 0 && view.save.seed ? { ...view.save } : readSaveFromStorage();
         overlay.alternativeSave = null;
         overlay.menu();
@@ -76,17 +80,58 @@ const uiEvents: GameEvents = {
 };
 
 const localGame = new Game(uiEvents);
-/** What is being played and drawn. Kept as a GameView so other views can be swapped in. */
-const view: GameView = localGame;
+/** What is being played and drawn: the local game, or the guest's mirror of a remote host. */
+let view: GameView = localGame;
+let host: HostSession | null = null;
+let remote: RemoteGame | null = null;
+/** Link being set up in a lobby, before a session exists. */
+let pendingLink: RelayLink | null = null;
+
+function setView(v: GameView): void {
+  view = v;
+  overlay.setGame(v);
+  updateDynamiteBtn();
+}
+
+function endOnline(): void {
+  pendingLink?.close();
+  pendingLink = null;
+  if (host) {
+    host.end();
+    host = null;
+  }
+  if (remote) {
+    remote.link.close();
+    remote = null;
+  }
+  if (view !== localGame) setView(localGame);
+}
 
 const overlay = new Overlay(localGame, {
   newGame: (players) => {
     sfx.unlock();
+    endOnline();
     localGame.newGame(players);
   },
   continueGame: (s) => {
     sfx.unlock();
+    endOnline();
     localGame.continueGame(s);
+  },
+  createOnline: () => {
+    sfx.unlock();
+    void startHosting();
+  },
+  joinWithCode: () => {
+    sfx.unlock();
+    overlay.enterCode(
+      (text) => {
+        const code = text.trim().toUpperCase();
+        if (/^[A-Z2-9]{6}$/.test(code)) void startJoining(code);
+        else overlay.toast(t('online.noRoom'));
+      },
+      () => localGame.quitToMenu(),
+    );
   },
   toggleSound: () => {
     sfx.unlock();
@@ -98,6 +143,131 @@ const overlay = new Overlay(localGame, {
 });
 
 const renderer = new Renderer(canvas);
+
+/* ---------- Online: host ---------- */
+
+async function startHosting(): Promise<void> {
+  endOnline();
+  const cancel = () => localGame.quitToMenu();
+  if (!relayConfigured()) {
+    overlay.lobby({ status: 'notConfigured', onRetry: startHosting, onCancel: cancel });
+    return;
+  }
+  const resumeSave: SaveState | null = overlay.pendingSave;
+  let resume = !!resumeSave;
+  overlay.lobby({ status: 'preparing', onRetry: startHosting, onCancel: cancel });
+  let link: RelayLink;
+  try {
+    const code = await createRoom();
+    link = new RelayLink('host', code);
+    pendingLink = link;
+    await link.connect();
+  } catch {
+    if (pendingLink && pendingLink !== link!) return;
+    pendingLink = null;
+    overlay.lobby({ status: 'failed', onRetry: startHosting, onCancel: cancel });
+    return;
+  }
+  if (pendingLink !== link) return; // cancelled meanwhile
+  const showLobby = () =>
+    overlay.lobby({
+      status: 'waiting',
+      code: link.code,
+      link: roomLink(link.code),
+      onRetry: startHosting,
+      onCancel: cancel,
+      resume: resumeSave
+        ? {
+            level: resumeSave.level,
+            money: resumeSave.money,
+            enabled: resume,
+            toggle: () => {
+              resume = !resume;
+            },
+          }
+        : undefined,
+    });
+  showLobby();
+  link.onCloseHandler = () => {
+    if (pendingLink !== link) return;
+    pendingLink = null;
+    overlay.lobby({ status: 'failed', onRetry: startHosting, onCancel: cancel });
+  };
+  link.onPeerJoined = () => {
+    if (pendingLink !== link) return;
+    pendingLink = null;
+    overlay.toast(t('online.connected'));
+    host = new HostSession(
+      link,
+      uiEvents,
+      () => overlay.peerLeft(
+        () => {
+          const save = host?.game.save ?? localGame.save;
+          endOnline();
+          localGame.continueGame({ ...save, players: 1 });
+        },
+        () => localGame.quitToMenu(),
+      ),
+      () => {
+        overlay.toast(t('online.peerBack'));
+        // Back to whatever the game state's overlay is (paused, most likely).
+        uiEvents.onStateChange(host!.game.state);
+      },
+    );
+    link.onReconnecting = () => overlay.reconnecting(() => localGame.quitToMenu());
+    link.onOpen = () => host && uiEvents.onStateChange(host.game.state);
+    setView(host.game);
+    host.start(resume ? resumeSave : null);
+  };
+  if (link.peerPresent) link.onPeerJoined();
+}
+
+/* ---------- Online: guest ---------- */
+
+async function startJoining(code: string): Promise<void> {
+  endOnline();
+  const cancel = () => {
+    history.replaceState(null, '', location.pathname + location.search);
+    localGame.quitToMenu();
+  };
+  const retry = () => void startJoining(code);
+  if (!relayConfigured()) {
+    overlay.join({ status: 'notConfigured', onRetry: retry, onCancel: cancel });
+    return;
+  }
+  overlay.join({ status: 'joining', onRetry: retry, onCancel: cancel });
+  let link: RelayLink | null = null;
+  try {
+    const info = await roomInfo(code);
+    if (!info.exists) {
+      overlay.join({ status: 'noRoom', onRetry: retry, onCancel: cancel });
+      return;
+    }
+    if (info.guest) {
+      overlay.join({ status: 'roomFull', onRetry: retry, onCancel: cancel });
+      return;
+    }
+    link = new RelayLink('guest', code);
+    pendingLink = link;
+    await link.connect();
+  } catch {
+    if (link && pendingLink !== link) return;
+    pendingLink = null;
+    overlay.join({ status: 'failed', onRetry: retry, onCancel: cancel });
+    return;
+  }
+  if (pendingLink !== link) return;
+  pendingLink = null;
+  history.replaceState(null, '', location.pathname + location.search);
+  overlay.toast(t('online.connected'));
+  remote = new RemoteGame(link, uiEvents, (final) => {
+    overlay.hostLeft(final, () => localGame.quitToMenu());
+  });
+  link.onReconnecting = () => overlay.reconnecting(() => localGame.quitToMenu());
+  link.onOpen = () => remote && uiEvents.onStateChange(remote.state);
+  setView(remote);
+  if (!link.peerPresent) overlay.hostLeft(false, () => localGame.quitToMenu());
+}
 
 /* ---------- HUD buttons ---------- */
 
@@ -200,7 +370,11 @@ pauseBtn.innerHTML = PAUSE_ICON;
 
 /* ---------- Boot ---------- */
 
-{
+const room = location.hash.match(/^#room=([A-Za-z2-9]{6})$/);
+if (room) {
+  overlay.pendingSave = readSaveFromStorage();
+  void startJoining((room[1] as string).toUpperCase());
+} else {
   const hashSave = readSaveFromHash();
   if (location.hash.startsWith('#g=') && !hashSave) {
     overlay.toast(t('menu.badLink'));
@@ -215,7 +389,11 @@ pauseBtn.innerHTML = PAUSE_ICON;
   overlay.menu();
 }
 
-if (import.meta.env.DEV) (window as unknown as { __game: Game }).__game = localGame;
+if (import.meta.env.DEV) {
+  const w = window as unknown as { __game: Game; __view: () => GameView };
+  w.__game = localGame;
+  w.__view = () => view;
+}
 
 // Offline support / installability. Updates are applied on the next launch.
 registerSW({ immediate: true });
@@ -227,6 +405,7 @@ function loop(now: number): void {
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
   view.frame(dt);
+  host?.frame(dt);
   const h = view.players[view.isOnline ? view.localPlayer : 0]?.hook;
   const reeling = view.state === 'playing' && view.players.some((p) => p.hook.phase === 'retract');
   sfx.reel(reeling, h?.grabbed ? 300 / (0.5 + ITEM_SPECS[h.grabbed.kind].weight) : 700);

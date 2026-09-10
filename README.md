@@ -5,16 +5,18 @@ A browser remake of the classic Flash game *Gold Miner* (黃金礦工). Swing th
 - Runs anywhere as static files. No backend, no frameworks, no downloaded assets: all art is drawn on a canvas and all sound is synthesized with Web Audio.
 - Desktop and mobile. Keyboard on desktop, tap anywhere on touch screens.
 - English, 简体中文 and 繁體中文. Auto-detected from the browser, switchable in the menu, or forced with `?lang=en|zh-CN|zh-TW`.
-- Two-player co-op on one screen (see below).
+- Two-player co-op on one screen or across two phones (see below).
 - Installable PWA. On iPhone/iPad open the link in Safari, tap Share → Add to Home Screen; it launches full-screen with its own icon and splash screen and works offline thanks to a service worker (`vite-plugin-pwa`).
 - Save links. Every new game gets a URL like `…/#g=AVp_1qUBAAAAAAAAxg`. Open it later on any device to continue from the current level with your money and purchased items. Progress is also mirrored in localStorage; when a link and local storage disagree about the same game, the further progress wins, and a different local game is offered as a second "Continue" button. Note that iOS Safari may clear site storage after seven days without a visit, so the link is the durable copy.
 
 ## Two players
 
-Co-op like the classic 双人版: two miners on one field, one shared money goal (1.6× the solo goal), one shared shop.
+Both modes are co-op like the classic 双人版: two miners on one field, one shared money goal (1.6× the solo goal), one shared shop.
 
 - **Same screen:** tap the left half of the screen for player 1 and the right half for player 2. Keyboard: `S`/`A` fire and `W` dynamite for player 1, `↓`/`→` fire and `↑` dynamite for player 2.
-- Online play is not available yet; see the git history for a WebRTC prototype with hand-carried signalling that was removed for being too clumsy to use.
+- **Online, phone to phone:** the host taps *Create online game* and gets a six-letter room code plus a link like `…/#room=K7PM3Q` (share it, or let the other phone scan the QR code). The guest opens the link, or types the code under *Join with a code*, and both phones start together. Progress lives on the host and is saved like a normal game, so a co-op run can be continued later by creating a new room from it. Short connection drops recover automatically; a guest who closes the page can rejoin with the same link.
+
+  The relay is a Cloudflare Worker with one Durable Object per room (`worker/`), which only forwards messages between the two phones. It runs comfortably on Cloudflare's free tier. Deployment happens in the GitHub Actions workflow when the repository secrets `CLOUDFLARE_API_TOKEN` (an "Edit Cloudflare Workers" token) and `CLOUDFLARE_ACCOUNT_ID` exist; the site build then bakes the worker URL in as `VITE_RELAY_URL`. Without them the site still deploys and online play shows "not set up". For local development run `npm run relay:dev` next to `npm run dev`.
 
 ## Controls
 
@@ -57,7 +59,9 @@ src/
   game/     pure game logic (no DOM): rng, save codec, level generation, hook physics, shop, state machine
   render/   canvas renderer and procedural sprites
   ui/       DOM overlay screens (menu, level cards, shop, pause, game over) and SVG icons
+  net/      online co-op: relay client, host session, guest mirror, message protocol
   audio/    Web Audio synth
+worker/     Cloudflare Worker relay (Durable Object per room)
   i18n/     en, zh-CN, zh-TW string tables
 test/       vitest unit tests for everything in src/game and src/i18n
 ```
