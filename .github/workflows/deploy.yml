@@ -43,6 +43,21 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx tsc -p worker/tsconfig.json
+      # A Worker needs a workers.dev subdomain for its public address; register one if the
+      # account has none yet (one-time, idempotent).
+      - name: Ensure workers.dev subdomain
+        env:
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WANTED: ${{ github.repository_owner }}
+        run: |
+          api="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/workers/subdomain"
+          current=$(curl -s -H "Authorization: Bearer $CF_API_TOKEN" "$api" | jq -r '.result.subdomain // empty')
+          if [ -n "$current" ]; then echo "subdomain already registered: $current.workers.dev"; exit 0; fi
+          name=$(echo "$WANTED" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9\n' '-')
+          echo "registering $name.workers.dev"
+          curl -sf -X PUT -H "Authorization: Bearer $CF_API_TOKEN" -H "content-type: application/json" \
+            "$api" -d "{\"subdomain\":\"$name\"}" | jq .
       - id: deploy
         uses: cloudflare/wrangler-action@v3
         with:
