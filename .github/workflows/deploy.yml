@@ -75,6 +75,8 @@ jobs:
 
   deploy:
     needs: build
+    # Explicit condition: a skipped worker job upstream must not skip the site deploy.
+    if: always() && needs.build.result == 'success'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
