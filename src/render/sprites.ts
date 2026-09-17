@@ -261,177 +261,236 @@ export function drawMiner(ctx: Ctx, px: number, py: number, spin: number, phase:
   ctx.fillStyle = '#7a4b1c';
   ctx.fillRect(-100, 22, 200, 12);
 
-  // ---- Miner (sits to the right of the winch, cranking it) ----
+  // ---- Miner: a stocky dwarf sitting to the right of the winch, cranking it ----
   ctx.save();
   ctx.translate(58, 0); // legs end exactly on the ledge top (y = 22)
   const cranking = phase === 'retract' || phase === 'extend';
   const crank = cranking ? spin * 3 : 0;
+  const skin = '#f0c39a';
+  const skinLine = '#8a5a3a';
+  const hair = '#f4f4f4';
+  const hairLine = '#b9b9b9';
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
+  // Short legs
   if (pose.sit) {
-    // Sitting: legs stretched out towards the winch, boot resting on the ledge.
     ctx.fillStyle = '#5a3a1a';
     ctx.beginPath();
-    ctx.roundRect(-46, 6, 60, 16, 7);
+    ctx.roundRect(-44, 8, 58, 14, 7);
     ctx.fill();
     ctx.fillStyle = '#3a2411';
     ctx.beginPath();
-    ctx.roundRect(-60, 10, 20, 12, 4);
+    ctx.roundRect(-58, 10, 20, 12, 4);
     ctx.fill();
   } else {
-    // Kneeling, seen from the side
     ctx.fillStyle = '#5a3a1a';
     ctx.beginPath();
-    ctx.roundRect(-12, 4, 34, 18, 6);
+    ctx.roundRect(-12, 6, 34, 16, 6);
     ctx.fill();
     ctx.fillStyle = '#3a2411';
     ctx.beginPath();
-    ctx.roundRect(-20, 12, 18, 10, 4);
+    ctx.roundRect(-22, 12, 20, 10, 4);
     ctx.fill();
   }
 
-  // Torso
+  // Wide barrel torso with suspenders and a belt
   ctx.fillStyle = shirt;
   ctx.strokeStyle = shirtDark;
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.roundRect(-14, -46, 40, 54, 10);
+  ctx.roundRect(-24, -38, 54, 46, 12);
   ctx.fill();
   ctx.stroke();
-  // Suspenders
   ctx.strokeStyle = shirtDark;
   ctx.lineWidth = 3;
   ctx.beginPath();
-  ctx.moveTo(-6, -44);
-  ctx.lineTo(-6, 4);
-  ctx.moveTo(14, -44);
-  ctx.lineTo(14, 4);
+  ctx.moveTo(-10, -36);
+  ctx.lineTo(-10, 2);
+  ctx.moveTo(16, -36);
+  ctx.lineTo(16, 2);
   ctx.stroke();
-
-  // Arm to the crank handle (rotates with the reel)
-  const hx = -58 + Math.cos(crank) * 22;
-  const hy = -6 + Math.sin(crank) * 22;
-  ctx.strokeStyle = shirt;
-  ctx.lineWidth = 11;
+  ctx.fillStyle = '#3a2411';
+  ctx.fillRect(-24, 0, 54, 8);
+  ctx.fillStyle = '#e0b13a';
+  ctx.strokeStyle = '#8a6a1a';
+  ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.moveTo(-8, -30);
-  ctx.quadraticCurveTo(-30, -36 + Math.sin(crank) * 6, hx, hy);
-  ctx.stroke();
-  ctx.fillStyle = '#f2c9a0';
-  ctx.beginPath();
-  ctx.arc(hx, hy, 7, 0, Math.PI * 2);
+  ctx.roundRect(-4, -1, 11, 10, 2);
   ctx.fill();
+  ctx.stroke();
 
-  // Head
-  ctx.fillStyle = '#f2c9a0';
-  ctx.strokeStyle = '#8a5a3a';
+  // Big round head, sitting straight on the shoulders (no neck)
+  ctx.fillStyle = skin;
+  ctx.strokeStyle = skinLine;
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.ellipse(4, -72, 20, 22, 0, 0, Math.PI * 2);
+  ctx.arc(0, -64, 26, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
   // Ear
   ctx.beginPath();
-  ctx.arc(24, -72, 5, 0, Math.PI * 2);
+  ctx.arc(25, -64, 6.5, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
-  // Eye and brow
+  ctx.fillStyle = '#e0a888';
+  ctx.beginPath();
+  ctx.arc(25.5, -64, 3, 0, Math.PI * 2);
+  ctx.fill();
+  // Rosy cheeks
+  ctx.fillStyle = 'rgba(226,110,100,0.35)';
+  ctx.beginPath();
+  ctx.arc(15, -55, 6, 0, Math.PI * 2);
+  ctx.arc(-12, -53, 5, 0, Math.PI * 2);
+  ctx.fill();
+  // Eyes: whites, pupils, glints
+  ctx.fillStyle = '#ffffff';
+  ctx.strokeStyle = skinLine;
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.ellipse(-9, -70, 6, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.ellipse(9, -70, 5.5, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
   ctx.fillStyle = '#222';
   ctx.beginPath();
-  ctx.arc(-6, -76, 2.6, 0, Math.PI * 2);
+  ctx.arc(-10.5, -70, 3, 0, Math.PI * 2);
+  ctx.arc(7.5, -70, 3, 0, Math.PI * 2);
   ctx.fill();
-  ctx.strokeStyle = '#ddd';
-  ctx.lineWidth = 3;
+  ctx.fillStyle = '#fff';
   ctx.beginPath();
-  ctx.moveTo(-13, -84);
-  ctx.lineTo(-1, -86);
+  ctx.arc(-11.5, -71.5, 1.1, 0, Math.PI * 2);
+  ctx.arc(6.5, -71.5, 1.1, 0, Math.PI * 2);
+  ctx.fill();
+  // Bushy white eyebrows
+  ctx.strokeStyle = hair;
+  ctx.lineWidth = 5.5;
+  ctx.beginPath();
+  ctx.moveTo(-19, -79);
+  ctx.quadraticCurveTo(-11, -84, -3, -79);
+  ctx.moveTo(3, -79);
+  ctx.quadraticCurveTo(11, -84, 19, -79);
   ctx.stroke();
-  // Nose
-  ctx.fillStyle = '#e8b48c';
+  // Big bulbous nose
+  ctx.fillStyle = '#eba58a';
+  ctx.strokeStyle = '#a56a4a';
+  ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.arc(-12, -68, 5, 0, Math.PI * 2);
+  ctx.arc(-14, -60, 9, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.beginPath();
+  ctx.arc(-17, -63, 3, 0, Math.PI * 2);
   ctx.fill();
 
-  // Big white beard: covers the lower face and spills over the chest
-  ctx.fillStyle = '#f4f4f4';
-  ctx.strokeStyle = '#b9b9b9';
+  // Huge beard: from the cheeks down over the chest, tied with a leather ring
+  ctx.fillStyle = hair;
+  ctx.strokeStyle = hairLine;
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(-14, -64);
-  ctx.quadraticCurveTo(-30, -40, -22, -18);
-  ctx.quadraticCurveTo(-14, -6, 0, -8);
-  ctx.quadraticCurveTo(14, -6, 22, -18);
-  ctx.quadraticCurveTo(30, -40, 22, -62);
-  ctx.quadraticCurveTo(4, -52, -14, -64);
+  ctx.moveTo(-24, -58);
+  ctx.quadraticCurveTo(-36, -30, -26, -6);
+  ctx.quadraticCurveTo(-14, 8, 0, 6);
+  ctx.quadraticCurveTo(16, 8, 28, -6);
+  ctx.quadraticCurveTo(38, -30, 24, -58);
+  ctx.quadraticCurveTo(12, -44, 0, -46);
+  ctx.quadraticCurveTo(-12, -44, -24, -58);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
-  // Beard strands
   ctx.strokeStyle = '#d6d6d6';
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(-10, -44);
-  ctx.quadraticCurveTo(-12, -30, -8, -18);
-  ctx.moveTo(4, -46);
-  ctx.quadraticCurveTo(4, -32, 4, -16);
-  ctx.moveTo(16, -44);
-  ctx.quadraticCurveTo(18, -30, 14, -20);
+  ctx.moveTo(-14, -40);
+  ctx.quadraticCurveTo(-18, -24, -12, -8);
+  ctx.moveTo(2, -38);
+  ctx.quadraticCurveTo(2, -22, 2, -6);
+  ctx.moveTo(16, -40);
+  ctx.quadraticCurveTo(20, -24, 14, -8);
   ctx.stroke();
-  // Moustache
-  ctx.fillStyle = '#ffffff';
-  ctx.beginPath();
-  ctx.ellipse(-8, -60, 11, 5, -0.15, 0, Math.PI * 2);
-  ctx.ellipse(8, -59, 11, 5, 0.15, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = '#b9b9b9';
+  ctx.fillStyle = '#8a5a2a';
+  ctx.strokeStyle = '#5a3a1a';
   ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.roundRect(-5, -14, 12, 7, 3);
+  ctx.fill();
+  ctx.stroke();
+  // Bushy moustache under the nose
+  ctx.fillStyle = '#ffffff';
+  ctx.strokeStyle = hairLine;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.ellipse(-13, -49, 12, 5, -0.25, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.ellipse(7, -48, 12, 5, 0.25, 0, Math.PI * 2);
+  ctx.fill();
   ctx.stroke();
 
-  // Hat: wide brim + tall crown with a band
+  // Hat: wide brim over the brows + tall crown with a band
   ctx.fillStyle = hat;
   ctx.strokeStyle = shirtDark;
   ctx.lineWidth = 2.5;
   ctx.beginPath();
-  ctx.ellipse(4, -88, 34, 8, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, -86, 40, 8, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
   ctx.beginPath();
-  ctx.moveTo(-16, -88);
-  ctx.quadraticCurveTo(-18, -104, -8, -108);
-  ctx.quadraticCurveTo(4, -111, 18, -108);
-  ctx.quadraticCurveTo(26, -104, 24, -88);
+  ctx.moveTo(-21, -86);
+  ctx.quadraticCurveTo(-23, -104, -11, -108);
+  ctx.quadraticCurveTo(2, -111, 16, -108);
+  ctx.quadraticCurveTo(27, -104, 25, -86);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
   ctx.fillStyle = hatBand;
   ctx.beginPath();
-  ctx.rect(-16, -98, 40, 7);
+  ctx.rect(-21, -97, 46, 7);
+  ctx.fill();
+
+  // Arm to the crank handle (rotates with the reel); drawn over the beard so it reads
+  const hx = -58 + Math.cos(crank) * 22;
+  const hy = -6 + Math.sin(crank) * 22;
+  ctx.strokeStyle = shirt;
+  ctx.lineWidth = 12;
+  ctx.beginPath();
+  ctx.moveTo(-14, -26);
+  ctx.quadraticCurveTo(-34, -30 + Math.sin(crank) * 6, hx, hy);
+  ctx.stroke();
+  ctx.fillStyle = skin;
+  ctx.beginPath();
+  ctx.arc(hx, hy, 7, 0, Math.PI * 2);
   ctx.fill();
 
   // Free (near) arm: rests on the knee, or brings a cigarette up to the lips.
+  const restX = 28;
+  const restY = 4;
   if (pose.smoke > 0.001) {
     const k = pose.smoke * pose.smoke * (3 - 2 * pose.smoke); // smoothstep
-    // Lips sit under the moustache on the left of the face; the hand stops just past the beard's edge.
-    const hx = 26 + (-30 - 26) * k;
-    const hy = 2 + (-62 - 2) * k;
+    const fx = restX + (-34 - restX) * k;
+    const fy = restY + (-54 - restY) * k;
     ctx.strokeStyle = shirt;
-    ctx.lineWidth = 11;
+    ctx.lineWidth = 12;
     ctx.beginPath();
-    ctx.moveTo(16, -30);
-    ctx.quadraticCurveTo(34, -14 - 30 * k, hx, hy);
+    ctx.moveTo(18, -26);
+    ctx.quadraticCurveTo(38, -10 - 34 * k, fx, fy);
     ctx.stroke();
-    ctx.fillStyle = '#f2c9a0';
-    ctx.strokeStyle = '#8a5a3a';
+    ctx.fillStyle = skin;
+    ctx.strokeStyle = skinLine;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.arc(hx, hy, 7, 0, Math.PI * 2);
+    ctx.arc(fx, fy, 7, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
     // Cigarette: points away from the face when at the lips, hangs down when resting.
     const ang = -0.35 + (Math.PI * 0.45) * (1 - k);
-    const cx = hx - 5;
-    const cy = hy - 1;
+    const cx = fx - 5;
+    const cy = fy - 1;
     const ex = cx + Math.cos(Math.PI + ang) * 18;
     const ey = cy + Math.sin(Math.PI + ang) * 18;
     ctx.strokeStyle = '#6b5a4a';
@@ -461,16 +520,15 @@ export function drawMiner(ctx: Ctx, px: number, py: number, spin: number, phase:
       }
     }
   } else {
-    // Hand resting on the knee.
     ctx.strokeStyle = shirt;
-    ctx.lineWidth = 11;
+    ctx.lineWidth = 12;
     ctx.beginPath();
-    ctx.moveTo(16, -30);
-    ctx.quadraticCurveTo(34, -14, 26, 2);
+    ctx.moveTo(18, -26);
+    ctx.quadraticCurveTo(38, -10, restX, restY);
     ctx.stroke();
-    ctx.fillStyle = '#f2c9a0';
+    ctx.fillStyle = skin;
     ctx.beginPath();
-    ctx.arc(26, 2, 7, 0, Math.PI * 2);
+    ctx.arc(restX, restY, 7, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.restore();

@@ -22,6 +22,9 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
   return e;
 }
 
+const GLOBE_ICON =
+  '<svg class="globe" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2"/><ellipse cx="12" cy="12" rx="4" ry="9.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M2.5 12h19M4 7.5h16M4 16.5h16" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
+
 function button(text: string, cls: string, onClick: () => void): HTMLButtonElement {
   const b = el('button', `btn ${cls}`.trim(), text);
   b.type = 'button';
@@ -88,16 +91,46 @@ export class Overlay {
     this.toastTimer = window.setTimeout(() => this.toastEl.classList.remove('show'), 2200);
   }
 
+  /** One button showing the current language; tapping it drops down the list of languages. */
   private langRow(): HTMLElement {
-    const row = el('div', 'row lang-row');
+    const wrap = el('div', 'lang-menu');
+    const current = getLang();
+    const toggle = el('button', 'btn secondary lang-btn');
+    toggle.type = 'button';
+    toggle.setAttribute('aria-haspopup', 'listbox');
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.innerHTML = `${GLOBE_ICON}<span>${LANG_NAMES[current]}</span><span class="caret" aria-hidden="true"></span>`;
+    const list = el('div', 'lang-list');
+    list.setAttribute('role', 'listbox');
+    list.hidden = true;
     for (const lang of LANGS) {
-      const b = button(LANG_NAMES[lang], `secondary${getLang() === lang ? ' active' : ''}`, () => {
+      const item = el('button', `lang-item${lang === current ? ' active' : ''}`, LANG_NAMES[lang]);
+      item.type = 'button';
+      item.setAttribute('role', 'option');
+      item.setAttribute('aria-selected', String(lang === current));
+      item.lang = lang;
+      item.addEventListener('click', () => {
         setLang(lang as Lang);
         this.refresh();
       });
-      row.appendChild(b);
+      list.appendChild(item);
     }
-    return row;
+    const close = () => {
+      list.hidden = true;
+      toggle.setAttribute('aria-expanded', 'false');
+      document.removeEventListener('pointerdown', onOutside, true);
+    };
+    const onOutside = (ev: Event) => {
+      if (!wrap.contains(ev.target as Node)) close();
+    };
+    toggle.addEventListener('click', () => {
+      if (!list.hidden) return close();
+      list.hidden = false;
+      toggle.setAttribute('aria-expanded', 'true');
+      document.addEventListener('pointerdown', onOutside, true);
+    });
+    wrap.append(toggle, list);
+    return wrap;
   }
 
   private soundButton(): HTMLButtonElement {
