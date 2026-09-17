@@ -58,9 +58,6 @@ export class Renderer {
     sky.addColorStop(1, '#f0b62a');
     g.fillStyle = sky;
     g.fillRect(0, 0, WORLD_W, GROUND_Y);
-    // Ground line
-    g.fillStyle = '#6f4a1e';
-    g.fillRect(0, GROUND_Y - 10, WORLD_W, 14);
     // Dirt strata
     const strata: [number, string, string][] = [
       [GROUND_Y, '#e2c08e', '#d6a96a'],
@@ -77,9 +74,10 @@ export class Renderer {
       g.fillStyle = grad;
       g.beginPath();
       g.moveTo(0, y0);
-      // Wavy boundary
+      // Wavy boundary between layers; the top layer meets the ground line flat so the
+      // ledge the miner stands on is never buried by a dune.
       for (let x = 0; x <= WORLD_W; x += 40) {
-        const wave = Math.sin(x / 140 + i * 1.7) * 18 + Math.sin(x / 47 + i) * 6;
+        const wave = i === 0 ? 0 : Math.sin(x / 140 + i * 1.7) * 18 + Math.sin(x / 47 + i) * 6;
         g.lineTo(x, y0 + wave);
       }
       g.lineTo(WORLD_W, WORLD_H);
@@ -87,6 +85,9 @@ export class Renderer {
       g.closePath();
       g.fill();
     }
+    // Ground line, drawn last so it sits on top of every layer and lines up with the ledge.
+    g.fillStyle = '#6f4a1e';
+    g.fillRect(0, GROUND_Y - 10, WORLD_W, 14);
     // Dark vignette on the sides like the original
     const vig = g.createLinearGradient(0, 0, WORLD_W, 0);
     vig.addColorStop(0, 'rgba(0,0,0,0.35)');
