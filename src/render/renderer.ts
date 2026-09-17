@@ -252,13 +252,6 @@ export class Renderer {
       }
       for (const p of game.players) {
         const hook = p.hook;
-        // Rope
-        ctx.strokeStyle = '#2a2a2a';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(hook.pivotX, PIVOT_Y);
-        ctx.lineTo(hook.tipX, hook.tipY);
-        ctx.stroke();
         let spin = this.reelSpin[p.index] ?? 0;
         if (hook.phase === 'retract') spin += dt * 10;
         else if (hook.phase === 'extend') spin -= dt * 10;
@@ -266,6 +259,13 @@ export class Renderer {
         const ms = this.minerState(p.index);
         this.updateMiner(ms, hook.phase === 'swing', dt);
         drawMiner(ctx, hook.pivotX, PIVOT_Y, spin, hook.phase, p.index, ms);
+        // Rope, drawn after the miner so it hangs in front of the deck
+        ctx.strokeStyle = '#2a2a2a';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(hook.pivotX, PIVOT_Y);
+        ctx.lineTo(hook.tipX, hook.tipY);
+        ctx.stroke();
         drawClaw(ctx, hook.tipX, hook.tipY, hook.angle, hook.grabbed ? 0 : 1);
         // Local-player marker in two-player games
         if (game.players.length > 1 && p.index === game.localPlayer && game.isOnline) {

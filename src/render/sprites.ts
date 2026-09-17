@@ -273,26 +273,19 @@ export function drawMiner(ctx: Ctx, px: number, py: number, spin: number, phase:
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
-  // Short legs
-  if (pose.sit) {
-    ctx.fillStyle = '#5a3a1a';
-    ctx.beginPath();
-    ctx.roundRect(-44, 8, 58, 14, 7);
-    ctx.fill();
+  // Short legs; the boot is the same size in every pose
+  const boot = (x: number) => {
     ctx.fillStyle = '#3a2411';
     ctx.beginPath();
-    ctx.roundRect(-58, 10, 20, 12, 4);
+    ctx.roundRect(x, 10, 22, 12, 5);
     ctx.fill();
-  } else {
-    ctx.fillStyle = '#5a3a1a';
-    ctx.beginPath();
-    ctx.roundRect(-12, 6, 34, 16, 6);
-    ctx.fill();
-    ctx.fillStyle = '#3a2411';
-    ctx.beginPath();
-    ctx.roundRect(-22, 12, 20, 10, 4);
-    ctx.fill();
-  }
+  };
+  ctx.fillStyle = '#5a3a1a';
+  ctx.beginPath();
+  if (pose.sit) ctx.roundRect(-22, 8, 36, 14, 7); // leg stretched out towards the winch, boot clear of it
+  else ctx.roundRect(-12, 6, 34, 16, 6); // kneeling: thigh folded back
+  ctx.fill();
+  boot(pose.sit ? -34 : -26);
 
   // Wide barrel torso with suspenders and a belt
   ctx.fillStyle = shirt;
@@ -412,13 +405,6 @@ export function drawMiner(ctx: Ctx, px: number, py: number, spin: number, phase:
   ctx.moveTo(16, -40);
   ctx.quadraticCurveTo(20, -24, 14, -8);
   ctx.stroke();
-  ctx.fillStyle = '#8a5a2a';
-  ctx.strokeStyle = '#5a3a1a';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.roundRect(-5, -14, 12, 7, 3);
-  ctx.fill();
-  ctx.stroke();
   // Bushy moustache under the nose
   ctx.fillStyle = '#ffffff';
   ctx.strokeStyle = hairLine;
@@ -437,20 +423,20 @@ export function drawMiner(ctx: Ctx, px: number, py: number, spin: number, phase:
   ctx.strokeStyle = shirtDark;
   ctx.lineWidth = 2.5;
   ctx.beginPath();
-  ctx.ellipse(0, -86, 40, 8, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, -90, 40, 8, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
   ctx.beginPath();
-  ctx.moveTo(-21, -86);
-  ctx.quadraticCurveTo(-23, -104, -11, -108);
-  ctx.quadraticCurveTo(2, -111, 16, -108);
-  ctx.quadraticCurveTo(27, -104, 25, -86);
+  ctx.moveTo(-21, -90);
+  ctx.quadraticCurveTo(-23, -108, -11, -112);
+  ctx.quadraticCurveTo(2, -115, 16, -112);
+  ctx.quadraticCurveTo(27, -108, 25, -90);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
   ctx.fillStyle = hatBand;
   ctx.beginPath();
-  ctx.rect(-21, -97, 46, 7);
+  ctx.rect(-21, -101, 46, 7);
   ctx.fill();
 
   // Arm to the crank handle (rotates with the reel); drawn over the beard so it reads
@@ -467,18 +453,19 @@ export function drawMiner(ctx: Ctx, px: number, py: number, spin: number, phase:
   ctx.arc(hx, hy, 7, 0, Math.PI * 2);
   ctx.fill();
 
-  // Free (near) arm: rests on the knee, or brings a cigarette up to the lips.
-  const restX = 28;
+  // Free (near) arm: rests on the knee, or holds a cigarette to the mouth under the moustache.
+  const restX = pose.sit ? -6 : 26;
   const restY = 4;
   if (pose.smoke > 0.001) {
     const k = pose.smoke * pose.smoke * (3 - 2 * pose.smoke); // smoothstep
-    const fx = restX + (-34 - restX) * k;
-    const fy = restY + (-54 - restY) * k;
+    // Hand ends just below and left of the mouth, holding the cigarette from underneath.
+    const fx = restX + (-18 - restX) * k;
+    const fy = restY + (-34 - restY) * k;
     ctx.strokeStyle = shirt;
     ctx.lineWidth = 12;
     ctx.beginPath();
     ctx.moveTo(18, -26);
-    ctx.quadraticCurveTo(38, -10 - 34 * k, fx, fy);
+    ctx.quadraticCurveTo(38, -8 - 24 * k, fx, fy);
     ctx.stroke();
     ctx.fillStyle = skin;
     ctx.strokeStyle = skinLine;
@@ -487,22 +474,23 @@ export function drawMiner(ctx: Ctx, px: number, py: number, spin: number, phase:
     ctx.arc(fx, fy, 7, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
-    // Cigarette: points away from the face when at the lips, hangs down when resting.
-    const ang = -0.35 + (Math.PI * 0.45) * (1 - k);
-    const cx = fx - 5;
-    const cy = fy - 1;
-    const ex = cx + Math.cos(Math.PI + ang) * 18;
-    const ey = cy + Math.sin(Math.PI + ang) * 18;
+    // Cigarette: at the lips it sticks out from under the moustache, over the beard;
+    // while the hand is down it hangs from the fingers.
+    const mx = -4 + (fx + 4) * (1 - k);
+    const my = -44 + (fy + 44) * (1 - k);
+    const ang = 0.2 + (Math.PI * 0.4) * (1 - k);
+    const ex = mx + Math.cos(Math.PI - ang) * 22;
+    const ey = my - Math.sin(Math.PI - ang) * 22;
     ctx.strokeStyle = '#6b5a4a';
     ctx.lineWidth = 6;
     ctx.beginPath();
-    ctx.moveTo(cx, cy);
+    ctx.moveTo(mx, my);
     ctx.lineTo(ex, ey);
     ctx.stroke();
     ctx.strokeStyle = '#f8f5ee';
     ctx.lineWidth = 3.5;
     ctx.beginPath();
-    ctx.moveTo(cx, cy);
+    ctx.moveTo(mx, my);
     ctx.lineTo(ex, ey);
     ctx.stroke();
     ctx.fillStyle = '#ff7a1a';
@@ -524,7 +512,7 @@ export function drawMiner(ctx: Ctx, px: number, py: number, spin: number, phase:
     ctx.lineWidth = 12;
     ctx.beginPath();
     ctx.moveTo(18, -26);
-    ctx.quadraticCurveTo(38, -10, restX, restY);
+    ctx.quadraticCurveTo(38, -8, restX, restY);
     ctx.stroke();
     ctx.fillStyle = skin;
     ctx.beginPath();
