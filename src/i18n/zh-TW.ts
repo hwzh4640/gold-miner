@@ -23,6 +23,7 @@ export const zhTW: Strings = {
 
   'level.start': '第 {level} 關',
   'level.goal': '目標：${goal}',
+  'level.earn': '現有 ${money} · 60 秒內再賺 ${amount}',
   'level.tapToStart': '點擊螢幕或按空白鍵開始',
   'level.cleared': '第 {level} 關過關！',
   'level.failed': '未達到目標金額。',

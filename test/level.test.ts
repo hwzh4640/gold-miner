@@ -1,22 +1,39 @@
 import { describe, it, expect } from 'vitest';
-import { generateLevel, levelGoal, totalValue, itemValue, WORLD_W, WORLD_H, GROUND_Y } from '../src/game/Level';
+import { generateLevel, goalFor, isSolid, levelEarnTarget, totalValue, itemValue, valueMargin, WORLD_W, WORLD_H, GROUND_Y } from '../src/game/Level';
 import { ITEM_SPECS } from '../src/game/entities';
 
 describe('Level generation', () => {
-  it('goal curve matches the classic first levels', () => {
-    expect(levelGoal(1)).toBe(650);
-    expect(levelGoal(2)).toBe(1150);
-    expect(levelGoal(3)).toBe(2150);
-    expect(levelGoal(4)).toBe(3650);
-    expect(levelGoal(5)).toBe(5650);
+  it('earn targets grow every level and co-op targets are 1.6x rounded to $50', () => {
+    expect(levelEarnTarget(1)).toBe(650);
+    expect(levelEarnTarget(2)).toBe(900);
+    expect(levelEarnTarget(3)).toBe(1250);
+    expect(levelEarnTarget(5)).toBe(2250);
+    for (let lvl = 2; lvl <= 40; lvl++) expect(levelEarnTarget(lvl)).toBeGreaterThan(levelEarnTarget(lvl - 1));
+    expect(levelEarnTarget(1, 2)).toBe(1050);
+    expect(levelEarnTarget(3, 2) % 50).toBe(0);
+  });
+
+  it('goals are relative to the bank so carried-over money never clears a level by itself', () => {
+    expect(goalFor(0, 1)).toBe(650);
+    expect(goalFor(12_345, 4)).toBe(12_345 + levelEarnTarget(4));
+    expect(goalFor(999.9, 2, 2)).toBe(999 + levelEarnTarget(2, 2));
+    const L = generateLevel(7, 6, 1, goalFor(50_000, 6));
+    expect(L.goal).toBe(50_000 + levelEarnTarget(6));
+  });
+
+  it('the value margin tightens from 2.4x to 1.6x', () => {
+    expect(valueMargin(1)).toBeCloseTo(2.4);
+    expect(valueMargin(6)).toBeCloseTo(2.0);
+    expect(valueMargin(11)).toBeCloseTo(1.6);
+    expect(valueMargin(30)).toBeCloseTo(1.6);
   });
 
   it('scales item values so a level is clearable in ~12 grabs', () => {
     for (let lvl = 1; lvl <= 30; lvl++) {
       const L = generateLevel(7, lvl);
-      const solid = L.entities.filter((e) => e.kind !== 'bag' && e.kind !== 'mole' && e.kind !== 'moleDiamond');
+      const solid = L.entities.filter((e) => isSolid(e.kind));
       const top = solid.map((e) => itemValue(e.kind, lvl)).sort((a, b) => b - a).slice(0, 12);
-      expect(top.reduce((a, b) => a + b, 0), `level ${lvl}`).toBeGreaterThanOrEqual(L.goal);
+      expect(top.reduce((a, b) => a + b, 0), `level ${lvl}`).toBeGreaterThanOrEqual(levelEarnTarget(lvl));
     }
   });
 
@@ -31,9 +48,10 @@ describe('Level generation', () => {
     for (const seed of [1, 42, 999, 0xdeadbeef, 2 ** 31]) {
       for (let lvl = 1; lvl <= 25; lvl++) {
         const L = generateLevel(seed, lvl);
-        // Value that is realistically collectible (moles and bags excluded) must beat the goal.
-        const solid = L.entities.filter((e) => e.kind !== 'bag' && e.kind !== 'mole' && e.kind !== 'moleDiamond');
-        expect(totalValue(solid, lvl), `seed ${seed} level ${lvl}`).toBeGreaterThanOrEqual(L.goal * 1.6);
+        // Value that is realistically collectible (moles and bags excluded) must beat the
+        // earn target by the level's margin (a little slack for items that found no room).
+        const solid = L.entities.filter((e) => isSolid(e.kind));
+        expect(totalValue(solid, lvl), `seed ${seed} level ${lvl}`).toBeGreaterThanOrEqual(levelEarnTarget(lvl) * (valueMargin(lvl) - 0.1));
         for (const e of L.entities) {
           const r = ITEM_SPECS[e.kind].radius;
           expect(e.x - r).toBeGreaterThanOrEqual(0);

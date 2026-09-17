@@ -147,6 +147,7 @@ export class Overlay {
     this.show((p) => {
       p.appendChild(el('h1', undefined, t('level.start', { level: g.save.level })));
       p.appendChild(el('p', undefined, t('level.goal', { goal: g.level.goal.toLocaleString('en-US') })));
+      p.appendChild(el('p', 'muted', t('level.earn', { money: g.money.toLocaleString('en-US'), amount: Math.max(0, g.level.goal - g.money).toLocaleString('en-US') })));
       if (g.isOnline) p.appendChild(el('p', 'muted', t('online.youAre', { n: g.localPlayer + 1 })));
       if (g.save.inventory.length) {
         const row = el('div', 'row');
@@ -202,7 +203,7 @@ export class Overlay {
   levelResult(): void {
     const g = this.game;
     this.show((p) => {
-      p.appendChild(el('h1', undefined, t('level.cleared', { level: g.save.level })));
+      p.appendChild(el('h1', undefined, t('level.cleared', { level: g.level.level })));
       p.appendChild(el('div', 'big-money', formatMoney(g.save.money)));
       if (g.isHost) p.appendChild(button(t('level.next'), 'primary', () => g.openShop()));
       else p.appendChild(el('p', 'muted', t('online.waitingHostNext')));
@@ -214,7 +215,7 @@ export class Overlay {
     this.show((p) => {
       p.appendChild(el('h1', undefined, t('gameover.title')));
       p.appendChild(el('p', undefined, t('level.failed')));
-      p.appendChild(el('p', undefined, t('gameover.summary', { level: g.save.level, money: g.money.toLocaleString('en-US') })));
+      p.appendChild(el('p', undefined, t('gameover.summary', { level: g.level.level, money: g.money.toLocaleString('en-US') })));
       p.appendChild(button(t('level.retry'), 'primary', () => g.restartLevel()));
       const row = el('div', 'row');
       if (!g.isOnline) row.appendChild(button(t('menu.newGame'), 'secondary', () => this.actions.newGame(g.save.players)));

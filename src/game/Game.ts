@@ -1,5 +1,5 @@
 import { Hook, PIVOT_X, swingPeriodForLevel } from './Hook';
-import { generateLevel, itemValue, LEVEL_SECONDS, WORLD_W, type LevelData } from './Level';
+import { generateLevel, goalFor, itemValue, LEVEL_SECONDS, WORLD_W, type LevelData } from './Level';
 import { ITEM_SPECS, isMole, isRock, type Entity } from './entities';
 import { Rng, subSeed, randomSeed } from './rng';
 import { buffsFromInventory, canBuy, shopOffers, type ItemId, type LevelBuffs, type ShopOffer } from './Shop';
@@ -149,7 +149,11 @@ export class Game implements GameView {
   }
 
   continueGame(save: SaveState, players?: 1 | 2): void {
-    this.save = { ...save, inventory: [...save.inventory], players: players ?? save.players ?? 1 };
+    const n = players ?? save.players ?? 1;
+    this.save = { ...save, inventory: [...save.inventory], players: n };
+    // Switching between solo and co-op changes the earn target; a goal the bank already
+    // meets (old saves, tampering) is rebuilt so the level still has to be earned.
+    if (n !== save.players || !(this.save.goal > this.save.money)) this.save.goal = goalFor(this.save.money, this.save.level, n);
     persistSave(this.save);
     this.loadLevel();
   }
@@ -161,7 +165,7 @@ export class Game implements GameView {
   /** Prepare the current save.level and show the intro card. */
   loadLevel(): void {
     this.setPlayerCount(this.save.players);
-    this.level = generateLevel(this.save.seed, this.save.level, this.save.players);
+    this.level = generateLevel(this.save.seed, this.save.level, this.save.players, this.save.goal);
     this.levelRng = new Rng(subSeed(this.save.seed, 500_000 + this.save.level));
     this.buffs = buffsFromInventory(this.save.inventory);
     for (const p of this.players) {
@@ -202,6 +206,11 @@ export class Game implements GameView {
       for (const p of this.players) p.levelMoney = 0;
       this.save.inventory = []; // consumables are spent
       this.offers = shopOffers(this.save.seed, this.save.level);
+      // Advance the save right away: the next goal is today's bank plus the next earn
+      // target, so shop spending eats into the margin and a save made in the shop
+      // resumes at the next level instead of replaying a cleared one.
+      this.save.level += 1;
+      this.save.goal = goalFor(this.save.money, this.save.level, this.save.players);
       persistSave(this.save);
       this.setState('levelResult');
     } else {
@@ -234,8 +243,6 @@ export class Game implements GameView {
 
   nextLevel(): void {
     if (this.state !== 'shop') return;
-    this.save.level += 1;
-    persistSave(this.save);
     this.loadLevel();
   }
 

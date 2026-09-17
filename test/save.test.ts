@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { encodeSave, decodeSave, newSave, pickSave, readSaveFromHash, SAVE_VERSION } from '../src/game/save';
+import { levelEarnTarget } from '../src/game/Level';
 
 describe('save codec', () => {
   it('round-trips a fresh save', () => {
@@ -14,11 +15,13 @@ describe('save codec', () => {
       money: 123456,
       inventory: ['dynamite', 'dynamite', 'drink', 'clover'] as const,
       players: 1 as const,
+      goal: 130_000,
     };
     const d = decodeSave(encodeSave({ ...s, inventory: [...s.inventory] }));
     expect(d).not.toBeNull();
     expect(d!.level).toBe(13);
     expect(d!.money).toBe(123456);
+    expect(d!.goal).toBe(130_000);
     expect(d!.seed).toBe(7);
     expect(d!.inventory.filter((i) => i === 'dynamite').length).toBe(2);
     expect(d!.inventory).toContain('drink');
@@ -46,6 +49,14 @@ describe('save codec', () => {
     expect(decodeSave(encodeSave(newSave(99)))?.players).toBe(1);
   });
 
+  it('rebuilds a goal the bank already meets so old links never start on a cleared level', () => {
+    const s = { ...newSave(3), level: 4, money: 5000, goal: 4000 };
+    const d = decodeSave(encodeSave(s));
+    expect(d!.goal).toBe(5000 + levelEarnTarget(4));
+    const ok = { ...newSave(3), level: 4, money: 5000, goal: 5001 };
+    expect(decodeSave(encodeSave(ok))!.goal).toBe(5001);
+  });
+
   it('still decodes version-1 codes as solo games', () => {
     // Hand-built v1 code: version 1, seed 7, level 3, money 1200, mask 0x0011 (1 dynamite + drink).
     const bytes = new Uint8Array(13);
@@ -60,16 +71,18 @@ describe('save codec', () => {
     bytes[12] = c;
     const code = btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     const d = decodeSave(code);
-    expect(d).toEqual({ v: SAVE_VERSION, seed: 7, level: 3, money: 1200, inventory: ['dynamite', 'drink'], players: 1 });
+    // Goals were not stored before v3: rebuilt from the bank and the level's earn target.
+    expect(d).toEqual({ v: SAVE_VERSION, seed: 7, level: 3, money: 1200, inventory: ['dynamite', 'drink'], players: 1, goal: 1200 + levelEarnTarget(3) });
   });
 
-  it('writes solo saves in the v1 layout (13 bytes) and co-op in v2 (14 bytes)', () => {
+  it('writes 18-byte v3 codes for solo and co-op alike', () => {
     const solo = encodeSave(newSave(1));
     const coop = encodeSave(newSave(1, 2));
-    expect(solo.length).toBe(18); // 13 bytes → 18 base64url chars
-    expect(coop.length).toBe(19);
+    expect(solo.length).toBe(24); // 18 bytes → 24 base64url chars
+    expect(coop.length).toBe(24);
     expect(decodeSave(solo)?.players).toBe(1);
     expect(decodeSave(coop)?.players).toBe(2);
+    expect(decodeSave(coop)?.goal).toBe(1050);
   });
 
   it('pickSave prefers the further progress of the same game and never hides a different local game', () => {

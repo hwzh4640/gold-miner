@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Game } from '../src/game/Game';
-import { LEVEL_SECONDS } from '../src/game/Level';
+import { LEVEL_SECONDS, levelEarnTarget } from '../src/game/Level';
 
 /** Drive a level by firing whenever the hook is swinging until time runs out. */
 function playOut(g: Game, fireEvery = 0.05): void {
@@ -28,7 +28,7 @@ describe('Game flow', () => {
 
   it('a cleared level opens the shop, purchases deduct money and persist inventory', () => {
     const g = new Game();
-    g.continueGame({ v: 2, seed: 77, level: 1, money: 0, inventory: [], players: 1 });
+    g.continueGame({ v: 3, seed: 77, level: 1, money: 0, inventory: [], players: 1, goal: 650 });
     g.primary();
     // Cheat: pretend the goal is already met so the flow can be exercised deterministically.
     g.levelMoney = g.level.goal + 1000;
@@ -47,8 +47,13 @@ describe('Game flow', () => {
       expect(g.save.money).toBe(before - offer.price);
       expect(g.save.inventory).toContain(offer.id);
     }
+    // The save already points at level 2 while shopping; its goal is the pre-shop bank + target.
+    expect(g.save.level).toBe(2);
+    expect(g.save.goal).toBe(g.level.goal + 1000 + levelEarnTarget(2));
     g.nextLevel();
     expect(g.save.level).toBe(2);
+    expect(g.level.level).toBe(2);
+    expect(g.level.goal).toBe(g.save.goal);
     expect(g.state).toBe('levelIntro');
     // Inventory bought for level 2 is reflected in buffs.
     if (affordable && offer.id === 'drink') expect(g.buffs.reelMultiplier).toBe(1.5);
@@ -56,15 +61,15 @@ describe('Game flow', () => {
 
   it('applies the level swing period when a level loads', () => {
     const g = new Game();
-    g.continueGame({ v: 2, seed: 5, level: 1, money: 0, inventory: [], players: 1 });
+    g.continueGame({ v: 3, seed: 5, level: 1, money: 0, inventory: [], players: 1, goal: 650 });
     expect(g.hook.swingPeriod).toBe(3);
-    g.continueGame({ v: 2, seed: 5, level: 10, money: 0, inventory: [], players: 1 });
+    g.continueGame({ v: 3, seed: 5, level: 10, money: 0, inventory: [], players: 1, goal: 9999 });
     expect(g.hook.swingPeriod).toBeCloseTo(1.7);
   });
 
   it('failing the goal is game over and keeps the save at the same level', () => {
     const g = new Game();
-    g.continueGame({ v: 2, seed: 5, level: 3, money: 500, inventory: [], players: 1 });
+    g.continueGame({ v: 3, seed: 5, level: 3, money: 500, inventory: [], players: 1, goal: 500 + levelEarnTarget(3) });
     g.primary();
     g.timeLeft = 0.001;
     g.frame(0.1);
@@ -73,9 +78,40 @@ describe('Game flow', () => {
     expect(g.save.money).toBe(500);
   });
 
+  it('a rich bank never clears a level by itself: the goal is rebuilt above the money', () => {
+    const g = new Game();
+    // Old-style save whose money already exceeds the stored goal.
+    g.continueGame({ v: 3, seed: 5, level: 6, money: 20_000, inventory: [], players: 1, goal: 8150 });
+    expect(g.level.goal).toBe(20_000 + levelEarnTarget(6));
+    g.primary();
+    g.timeLeft = 0.001;
+    g.frame(0.1);
+    expect(g.state).toBe('gameOver');
+  });
+
+  it('each cleared level raises the goal by the next earn target from the new bank', () => {
+    const g = new Game();
+    g.newGame();
+    expect(g.level.goal).toBe(650);
+    for (let lvl = 1; lvl <= 5; lvl++) {
+      g.primary();
+      g.levelMoney = g.level.goal - g.save.money + 3000; // overshoot generously
+      g.timeLeft = 0.001;
+      g.frame(0.1);
+      expect(g.state).toBe('levelResult');
+      const bank = g.save.money;
+      expect(g.save.goal).toBe(bank + levelEarnTarget(lvl + 1));
+      g.openShop();
+      g.nextLevel();
+      expect(g.level.level).toBe(lvl + 1);
+      // Money on hand is always short of the goal at the start of a level.
+      expect(g.money).toBeLessThan(g.level.goal);
+    }
+  });
+
   it('dynamite only works while something is hooked, and is consumed', () => {
     const g = new Game();
-    g.continueGame({ v: 2, seed: 5, level: 1, money: 0, inventory: ['dynamite', 'dynamite'], players: 1 });
+    g.continueGame({ v: 3, seed: 5, level: 1, money: 0, inventory: ['dynamite', 'dynamite'], players: 1, goal: 650 });
     g.primary();
     expect(g.buffs.dynamite).toBe(2);
     expect(g.useDynamite()).toBe(false);
@@ -99,13 +135,13 @@ describe('Two players (co-op)', () => {
     g.newGame(2);
     expect(g.players.length).toBe(2);
     expect(g.players[0]!.hook.pivotX).toBeLessThan(g.players[1]!.hook.pivotX);
-    expect(g.level.goal).toBe(Math.round((650 * 1.6) / 50) * 50);
+    expect(g.level.goal).toBe(1050);
     expect(g.save.players).toBe(2);
   });
 
   it('both players cash into the shared total and the level clears on the sum', () => {
     const g = new Game();
-    g.continueGame({ v: 2, seed: 11, level: 1, money: 0, inventory: [], players: 2 });
+    g.continueGame({ v: 3, seed: 11, level: 1, money: 0, inventory: [], players: 2, goal: 1050 });
     g.primary();
     // Drive both hooks: fire whenever swinging, for a while.
     let t = 0;
@@ -126,11 +162,12 @@ describe('Two players (co-op)', () => {
     g.frame(0.05);
     expect(g.state).toBe('levelResult');
     expect(g.save.money).toBe(g.level.goal + 1);
+    expect(g.save.goal).toBe(g.level.goal + 1 + levelEarnTarget(2, 2));
   });
 
   it('fireAt fires at the requested angle and only while swinging', () => {
     const g = new Game();
-    g.continueGame({ v: 2, seed: 11, level: 1, money: 0, inventory: [], players: 2 });
+    g.continueGame({ v: 3, seed: 11, level: 1, money: 0, inventory: [], players: 2, goal: 1050 });
     g.primary();
     g.fireAt(1, 0.7);
     expect(g.players[1]!.hook.phase).toBe('extend');
@@ -141,7 +178,7 @@ describe('Two players (co-op)', () => {
 
   it('a shared dynamite pool can be used by either player', () => {
     const g = new Game();
-    g.continueGame({ v: 2, seed: 3, level: 1, money: 0, inventory: ['dynamite'], players: 2 });
+    g.continueGame({ v: 3, seed: 3, level: 1, money: 0, inventory: ['dynamite'], players: 2, goal: 1050 });
     g.primary();
     g.primary(1);
     let t = 0;

@@ -21,6 +21,7 @@ export const en = {
 
   'level.start': 'Level {level}',
   'level.goal': 'Goal: ${goal}',
+  'level.earn': 'You have ${money} · earn ${amount} more in 60 seconds',
   'level.tapToStart': 'Tap or press Space to start',
   'level.cleared': 'Level {level} cleared!',
   'level.failed': 'You did not reach the goal.',

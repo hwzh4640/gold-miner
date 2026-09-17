@@ -24,7 +24,7 @@ const noop: GameEvents = {
  */
 export class RemoteGame implements GameView {
   state: GameState = 'menu';
-  save: SaveState = { v: SAVE_VERSION, seed: 0, level: 1, money: 0, inventory: [], players: 2 };
+  save: SaveState = { v: SAVE_VERSION, seed: 0, level: 1, money: 0, inventory: [], players: 2, goal: 0 };
   level: LevelData = { level: 1, goal: 0, entities: [] };
   players: Player[] = PIVOTS[2].map((px, i) => {
     const hook = new Hook();
@@ -148,16 +148,19 @@ export class RemoteGame implements GameView {
     if (!isHostMsg(m) || this.hostGone) return;
     switch (m.t) {
       case 'hello':
-        this.save = { v: SAVE_VERSION, seed: m.seed, level: m.level, money: m.money, inventory: [...m.inventory], players: 2 };
+        this.save = { v: SAVE_VERSION, seed: m.seed, level: m.level, money: m.money, inventory: [...m.inventory], players: 2, goal: 0 };
         break;
       case 'phase': {
-        const levelChanged = m.seed !== this.save.seed || m.level !== this.save.level || this.level.entities.length === 0;
-        this.save = { v: SAVE_VERSION, seed: m.seed, level: m.level, money: m.money, inventory: [...m.inventory], players: 2 };
+        // The host's save already points at the next level while the result card and the
+        // shop are up, so only rebuild the field for the level actually being played.
+        const between = m.state === 'levelResult' || m.state === 'shop';
+        const needLevel = this.level.entities.length === 0 || m.seed !== this.save.seed || (m.level !== this.level.level && !between);
+        this.save = { v: SAVE_VERSION, seed: m.seed, level: m.level, money: m.money, inventory: [...m.inventory], players: 2, goal: m.goal };
         this.offers = m.offers;
         this.lastResultCleared = m.cleared;
         this.buffs = m.buffs;
-        if (levelChanged || m.state === 'levelIntro') this.loadLevel(m.seed, m.level);
-        this.level.goal = m.goal;
+        if (needLevel || m.state === 'levelIntro') this.loadLevel(m.seed, m.level);
+        if (!between) this.level.goal = m.goal;
         for (const p of this.players) p.hook.reelMultiplier = this.buffs.reelMultiplier;
         if (m.state !== this.state) this.setState(m.state);
         break;

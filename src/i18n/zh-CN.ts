@@ -23,6 +23,7 @@ export const zhCN: Strings = {
 
   'level.start': '第 {level} 关',
   'level.goal': '目标：${goal}',
+  'level.earn': '现有 ${money} · 60 秒内再赚 ${amount}',
   'level.tapToStart': '点击屏幕或按空格键开始',
   'level.cleared': '第 {level} 关通关！',
   'level.failed': '未达到目标金额。',

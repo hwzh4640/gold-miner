@@ -11,7 +11,7 @@ A browser remake of the classic Flash game *Gold Miner* (黃金礦工). Swing th
 
 ## Two players
 
-Both modes are co-op like the classic 双人版: two miners on one field, one shared money goal (1.6× the solo goal), one shared shop.
+Both modes are co-op like the classic 双人版: two miners on one field, one shared money goal (earn targets are 1.6× the solo ones), one shared shop.
 
 - **Same screen:** tap the left half of the screen for player 1 and the right half for player 2. Keyboard: `S`/`A` fire and `W` dynamite for player 1, `↓`/`→` fire and `↑` dynamite for player 2.
 - **Online, phone to phone:** the host taps *Create online game* and gets a six-letter room code plus a link like `…/#room=K7PM3Q` (share it, or let the other phone scan the QR code). The guest opens the link, or types the code under *Join with a code*, and both phones start together. Progress lives on the host and is saved like a normal game, so a co-op run can be continued later by creating a new room from it. Short connection drops recover automatically; a guest who closes the page can rejoin with the same link.
@@ -32,7 +32,8 @@ Both modes are co-op like the classic 双人版: two miners on one field, one sh
 
 - 60 seconds per level. Reach the goal or it is game over; you can retry the same level.
 - The hook swings slowly on level 1 (3 s per swing) and speeds up each level until it reaches full speed (1.7 s) at level 8.
-- Money carries over. Goals follow the classic curve ($650, $1150, $2150, $3650, $5650…). From level 4 item values scale with the goal so a level stays clearable in roughly a dozen grabs.
+- Money carries over, but goals are relative: each level's goal is the money you had when the previous level ended plus that level's earn target ($650, $900, $1,250, $1,700, $2,250, $2,900…). Carried-over money never clears a level by itself, and whatever you spend in the shop widens the gap.
+- From level 6 item values scale with the earn target so a level stays clearable in roughly a dozen grabs. Difficulty comes from the field holding less spare value as levels climb (2.4× the target on level 1, 1.6× from level 11), more rocks, and the faster swing.
 - Items: small/medium/large/huge gold, small/large rocks (heavy, nearly worthless), diamonds (light, $600), mystery bags (cash or a free item), moles (fast, $2) and moles carrying a diamond.
 - Shop items last for one level: Dynamite (destroys whatever is on the hook), Strength Drink (reel 50% faster), Rock Collector's Book (rocks ×3), Diamond Polish (diamonds ×1.5), Lucky Clover (bags are always good).
 

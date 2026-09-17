@@ -213,7 +213,7 @@ export class Renderer {
       label(t('hud.time'), rx - 150, 18, 'right');
       value(String(secs), rx, 12, secs <= 10 ? '#d21f1f' : '#b8420c', 'right');
       label(t('hud.level'), rx - 150, 68, 'right');
-      value(String(game.save.level), rx, 62, '#b8420c', 'right');
+      value(String(game.level.level), rx, 62, '#b8420c', 'right');
     } else {
       // Two players: each player's own money at their edge, shared total + goal in the middle,
       // time and level in the middle band above the winches.
@@ -230,7 +230,7 @@ export class Renderer {
       ctx.font = `600 22px ${FONT}`;
       ctx.textAlign = 'center';
       ctx.fillStyle = secs <= 10 ? '#d21f1f' : '#5a3a12';
-      ctx.fillText(`${t('hud.time')} ${secs}   ·   ${t('hud.level')} ${game.save.level}`, cx, 92);
+      ctx.fillText(`${t('hud.time')} ${secs}   ·   ${t('hud.level')} ${game.level.level}`, cx, 92);
       dynX = (p1?.hook.pivotX ?? 0) - 200;
     }
     // Dynamite count
