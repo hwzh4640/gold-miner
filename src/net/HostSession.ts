@@ -47,10 +47,9 @@ export class HostSession {
         send({ t: 'ev', k: 'bag', p, id: e.id, outcome: o, x: e.x, y: e.y });
         send({ t: 'buffs', buffs: this.game.buffs });
       },
-      onDynamite: (p) => {
-        ui.onDynamite?.(p);
-        const pl = this.game.popups[this.game.popups.length - 1];
-        send({ t: 'ev', k: 'dyn', p, x: pl?.x ?? 0, y: pl?.y ?? 0 });
+      onDynamite: (p, blast) => {
+        ui.onDynamite?.(p, blast);
+        send({ t: 'ev', k: 'dyn', p, x: blast.x, y: blast.y, kind: blast.kind });
       },
       onTick: (s) => {
         ui.onTick?.(s);

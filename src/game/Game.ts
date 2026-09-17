@@ -1,6 +1,6 @@
 import { Hook, PIVOT_X, swingPeriodForLevel } from './Hook';
 import { generateLevel, goalFor, itemValue, LEVEL_SECONDS, WORLD_W, type LevelData } from './Level';
-import { ITEM_SPECS, isMole, isRock, type Entity } from './entities';
+import { ITEM_SPECS, isMole, isRock, type Entity, type ItemKind } from './entities';
 import { Rng, subSeed, randomSeed } from './rng';
 import { buffsFromInventory, canBuy, shopOffers, type ItemId, type LevelBuffs, type ShopOffer } from './Shop';
 import { newSave, persistSave, type SaveState } from './save';
@@ -19,13 +19,20 @@ export interface Popup {
 
 export type BagOutcome = { type: 'cash'; amount: number } | { type: 'item'; item: ItemId } | { type: 'nothing' };
 
+/** Where and what a stick of dynamite just destroyed (for the debris effect). */
+export interface Blast {
+  x: number;
+  y: number;
+  kind: ItemKind;
+}
+
 export interface GameEvents {
   onStateChange(state: GameState): void;
   onCash(entity: Entity, amount: number, player: number): void;
   onBag(outcome: BagOutcome, player: number): void;
   onFire(player: number): void;
   onGrab(entity: Entity, player: number): void;
-  onDynamite(player: number): void;
+  onDynamite(player: number, blast: Blast): void;
   onTick(secondsLeft: number): void;
 }
 
@@ -270,7 +277,7 @@ export class Game implements GameView {
     const e = p.hook.dynamite();
     if (!e) return false;
     this.buffs.dynamite -= 1;
-    this.events.onDynamite(player);
+    this.events.onDynamite(player, { x: e.x, y: e.y, kind: e.kind });
     this.popups.push({ x: e.x, y: e.y, text: 'BOOM!', color: '#ff5a2a', age: 0, life: 0.8 });
     return true;
   }

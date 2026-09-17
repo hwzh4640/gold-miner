@@ -1,6 +1,7 @@
 import type { GameState, BagOutcome } from '../game/Game';
 import type { ItemId, LevelBuffs, ShopOffer } from '../game/Shop';
 import type { HookPhase } from '../game/Hook';
+import type { ItemKind } from '../game/entities';
 
 /** Guest → host. */
 export type InputMsg =
@@ -31,7 +32,7 @@ export type HostMsg =
   | { t: 'ev'; k: 'grab'; p: number; id: number }
   | { t: 'ev'; k: 'cash'; p: number; id: number; amount: number; x: number; y: number }
   | { t: 'ev'; k: 'bag'; p: number; id: number; outcome: BagOutcome; x: number; y: number }
-  | { t: 'ev'; k: 'dyn'; p: number; x: number; y: number }
+  | { t: 'ev'; k: 'dyn'; p: number; x: number; y: number; kind?: ItemKind }
   | { t: 'ev'; k: 'tick'; s: number }
   | { t: 'buffs'; buffs: LevelBuffs }
   | { t: 'bye' };

@@ -218,12 +218,13 @@ export class RemoteGame implements GameView {
       }
       case 'dyn': {
         const hook = this.players[m.p]?.hook;
+        const kind = m.kind ?? hook?.grabbed?.kind ?? 'rockS';
         if (hook?.grabbed) {
           hook.grabbed.taken = true;
           hook.grabbed = null;
         }
         this.popups.push({ x: m.x, y: m.y, text: 'BOOM!', color: '#ff5a2a', age: 0, life: 0.8 });
-        this.events.onDynamite(m.p);
+        this.events.onDynamite(m.p, { x: m.x, y: m.y, kind });
         break;
       }
       case 'tick':

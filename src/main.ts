@@ -70,8 +70,9 @@ const uiEvents: GameEvents = {
     else overlay.toast(t('bag.nothing'));
     updateDynamiteBtn();
   },
-  onDynamite: () => {
+  onDynamite: (_p, blast) => {
     sfx.dynamite();
+    renderer.burst(blast.x, blast.y, blast.kind);
     updateDynamiteBtn();
   },
   onTick: (s) => {
@@ -390,8 +391,9 @@ if (room) {
 }
 
 if (import.meta.env.DEV) {
-  const w = window as unknown as { __game: Game; __view: () => GameView };
+  const w = window as unknown as { __game: Game; __view: () => GameView; __renderer: Renderer };
   w.__game = localGame;
+  w.__renderer = renderer;
   w.__view = () => view;
 }
 

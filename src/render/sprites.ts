@@ -157,6 +157,18 @@ export function drawMole(ctx: Ctx, r: number, facing: number, withDiamond: boole
   ctx.strokeStyle = '#33210f';
   ctx.lineWidth = 2;
   ctx.stroke();
+  // Ears (drawn first so the head overlaps their base)
+  for (const ex of [r * 0.6, r * 1.02]) {
+    ctx.beginPath();
+    ctx.arc(ex, -r * 0.56, r * 0.19, 0, Math.PI * 2);
+    ctx.fillStyle = '#7a5637';
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(ex, -r * 0.56, r * 0.1, 0, Math.PI * 2);
+    ctx.fillStyle = '#e9a0b0';
+    ctx.fill();
+  }
   // Head
   ctx.beginPath();
   ctx.ellipse(r * 0.85, -r * 0.15, r * 0.55, r * 0.45, 0, 0, Math.PI * 2);
@@ -226,8 +238,19 @@ export function drawEntity(ctx: Ctx, e: Entity, t: number): void {
   ctx.restore();
 }
 
+/** Cosmetic idle behaviour of a miner: sitting with legs out, and a cigarette in the free hand. */
+export interface MinerPose {
+  sit: boolean;
+  /** 0 = hand resting on the knee, 1 = cigarette at the lips. */
+  smoke: number;
+  /** Clock for the drifting smoke puffs. */
+  smokeT: number;
+}
+
+export const KNEELING: MinerPose = { sit: false, smoke: 0, smokeT: 0 };
+
 /** The miner with a winch, drawn at the pivot point. `spin` rotates the reel. */
-export function drawMiner(ctx: Ctx, px: number, py: number, spin: number, phase: string, player = 0): void {
+export function drawMiner(ctx: Ctx, px: number, py: number, spin: number, phase: string, player = 0, pose: MinerPose = KNEELING): void {
   const shirt = player === 1 ? '#3f7fbf' : '#b97b3f';
   const shirtDark = player === 1 ? '#234a73' : '#6b4520';
   const hat = player === 1 ? '#4a6b8a' : '#c98a3a';
@@ -240,21 +263,33 @@ export function drawMiner(ctx: Ctx, px: number, py: number, spin: number, phase:
 
   // ---- Miner (sits to the right of the winch, cranking it) ----
   ctx.save();
-  ctx.translate(58, -4);
+  ctx.translate(58, 0); // legs end exactly on the ledge top (y = 22)
   const cranking = phase === 'retract' || phase === 'extend';
   const crank = cranking ? spin * 3 : 0;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
-  // Legs (kneeling, seen from the side)
-  ctx.fillStyle = '#5a3a1a';
-  ctx.beginPath();
-  ctx.roundRect(-12, 4, 34, 18, 6);
-  ctx.fill();
-  ctx.fillStyle = '#3a2411';
-  ctx.beginPath();
-  ctx.roundRect(-20, 14, 18, 10, 4);
-  ctx.fill();
+  if (pose.sit) {
+    // Sitting: legs stretched out towards the winch, boot resting on the ledge.
+    ctx.fillStyle = '#5a3a1a';
+    ctx.beginPath();
+    ctx.roundRect(-46, 6, 60, 16, 7);
+    ctx.fill();
+    ctx.fillStyle = '#3a2411';
+    ctx.beginPath();
+    ctx.roundRect(-60, 10, 20, 12, 4);
+    ctx.fill();
+  } else {
+    // Kneeling, seen from the side
+    ctx.fillStyle = '#5a3a1a';
+    ctx.beginPath();
+    ctx.roundRect(-12, 4, 34, 18, 6);
+    ctx.fill();
+    ctx.fillStyle = '#3a2411';
+    ctx.beginPath();
+    ctx.roundRect(-20, 12, 18, 10, 4);
+    ctx.fill();
+  }
 
   // Torso
   ctx.fillStyle = shirt;
@@ -373,6 +408,71 @@ export function drawMiner(ctx: Ctx, px: number, py: number, spin: number, phase:
   ctx.beginPath();
   ctx.rect(-16, -98, 40, 7);
   ctx.fill();
+
+  // Free (near) arm: rests on the knee, or brings a cigarette up to the lips.
+  if (pose.smoke > 0.001) {
+    const k = pose.smoke * pose.smoke * (3 - 2 * pose.smoke); // smoothstep
+    // Lips sit under the moustache on the left of the face; the hand stops just past the beard's edge.
+    const hx = 26 + (-30 - 26) * k;
+    const hy = 2 + (-62 - 2) * k;
+    ctx.strokeStyle = shirt;
+    ctx.lineWidth = 11;
+    ctx.beginPath();
+    ctx.moveTo(16, -30);
+    ctx.quadraticCurveTo(34, -14 - 30 * k, hx, hy);
+    ctx.stroke();
+    ctx.fillStyle = '#f2c9a0';
+    ctx.strokeStyle = '#8a5a3a';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(hx, hy, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    // Cigarette: points away from the face when at the lips, hangs down when resting.
+    const ang = -0.35 + (Math.PI * 0.45) * (1 - k);
+    const cx = hx - 5;
+    const cy = hy - 1;
+    const ex = cx + Math.cos(Math.PI + ang) * 18;
+    const ey = cy + Math.sin(Math.PI + ang) * 18;
+    ctx.strokeStyle = '#6b5a4a';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(ex, ey);
+    ctx.stroke();
+    ctx.strokeStyle = '#f8f5ee';
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(ex, ey);
+    ctx.stroke();
+    ctx.fillStyle = '#ff7a1a';
+    ctx.beginPath();
+    ctx.arc(ex, ey, 2.4, 0, Math.PI * 2);
+    ctx.fill();
+    // Smoke drifts up from the ember
+    if (k > 0.85) {
+      for (let i = 0; i < 3; i++) {
+        const ph = (pose.smokeT * 0.45 + i / 3) % 1;
+        ctx.fillStyle = `rgba(230,230,230,${(1 - ph) * 0.55})`;
+        ctx.beginPath();
+        ctx.arc(ex - 4 - ph * 12 + Math.sin((pose.smokeT + i) * 3) * 4, ey - 8 - ph * 34, 3 + ph * 7, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  } else {
+    // Hand resting on the knee.
+    ctx.strokeStyle = shirt;
+    ctx.lineWidth = 11;
+    ctx.beginPath();
+    ctx.moveTo(16, -30);
+    ctx.quadraticCurveTo(34, -14, 26, 2);
+    ctx.stroke();
+    ctx.fillStyle = '#f2c9a0';
+    ctx.beginPath();
+    ctx.arc(26, 2, 7, 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.restore();
 
   // ---- Winch ----

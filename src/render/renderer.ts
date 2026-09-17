@@ -1,8 +1,37 @@
 import { PLAYER_COLORS, type GameView } from '../game/Game';
+import { isGold, isRock, type ItemKind } from '../game/entities';
 import { PIVOT_Y } from '../game/Hook';
 import { GROUND_Y, WORLD_H, WORLD_W } from '../game/Level';
 import { formatMoney, t } from '../i18n';
-import { drawClaw, drawEntity, drawMiner } from './sprites';
+import { drawClaw, drawEntity, drawMiner, type MinerPose } from './sprites';
+
+/** A miner's current idle behaviour and when to roll a new one. */
+interface MinerState extends MinerPose {
+  smoking: boolean;
+  nextChange: number;
+}
+
+interface Debris {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  rot: number;
+  vr: number;
+  size: number;
+  color: string;
+  age: number;
+  life: number;
+}
+
+const GRAVITY = 1100;
+
+function debrisColors(kind: ItemKind): string[] {
+  if (isRock(kind)) return ['#9aa3b0', '#6f7986', '#525b68', '#3f4753'];
+  if (isGold(kind)) return ['#ffe36b', '#f2c12e', '#c99a1a', '#8a6a0f'];
+  if (kind === 'diamond' || kind === 'moleDiamond') return ['#dffbff', '#8fe4ff', '#4fc3f7', '#2a8fc4'];
+  return ['#a0785a', '#7a5637', '#5a3d24'];
+}
 
 export const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans CJK TC", sans-serif';
 
@@ -14,6 +43,9 @@ export class Renderer {
   private bg: HTMLCanvasElement | null = null;
   private reelSpin: number[] = [0, 0];
   private time = 0;
+  private miners: MinerState[] = [];
+  private debris: Debris[] = [];
+  private blasts: { x: number; y: number; age: number }[] = [];
 
   constructor(private canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d');
@@ -36,6 +68,92 @@ export class Renderer {
     this.offsetX = (w - WORLD_W * this.scale) / 2;
     this.offsetY = (h - WORLD_H * this.scale) / 2;
     this.bg = null;
+  }
+
+  /** Spawn flying chunks and a dust ring where dynamite just went off. */
+  burst(x: number, y: number, kind: ItemKind): void {
+    const colors = debrisColors(kind);
+    const n = isRock(kind) ? 22 : 16;
+    for (let i = 0; i < n; i++) {
+      const a = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 1.6;
+      const sp = 180 + Math.random() * 360;
+      this.debris.push({
+        x: x + (Math.random() - 0.5) * 20,
+        y: y + (Math.random() - 0.5) * 20,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp - 120,
+        rot: Math.random() * Math.PI,
+        vr: (Math.random() - 0.5) * 16,
+        size: 4 + Math.random() * 9,
+        color: colors[Math.floor(Math.random() * colors.length)]!,
+        age: 0,
+        life: 0.6 + Math.random() * 0.5,
+      });
+    }
+    this.blasts.push({ x, y, age: 0 });
+  }
+
+  private minerState(i: number): MinerState {
+    let s = this.miners[i];
+    if (!s) {
+      s = { sit: false, smoke: 0, smokeT: Math.random() * 10, smoking: false, nextChange: this.time + 3 + Math.random() * 5 };
+      this.miners[i] = s;
+    }
+    return s;
+  }
+
+  /** Idle behaviour: every few seconds while the hook swings, maybe sit down or light up. */
+  private updateMiner(s: MinerState, swinging: boolean, dt: number): void {
+    s.smokeT += dt;
+    if (swinging && this.time >= s.nextChange) {
+      s.sit = Math.random() < 0.45;
+      s.smoking = Math.random() < 0.5;
+      s.nextChange = this.time + 6 + Math.random() * 8;
+    }
+    // While smoking the hand goes to the lips for a drag and back to the knee.
+    const target = s.smoking && Math.sin(s.smokeT * 0.8) > -0.3 ? 1 : 0;
+    s.smoke += (target - s.smoke) * Math.min(1, dt * 3);
+  }
+
+  private drawEffects(dt: number): void {
+    const ctx = this.ctx;
+    for (const b of this.blasts) {
+      b.age += dt;
+      const k = b.age / 0.45;
+      if (k >= 1) continue;
+      ctx.strokeStyle = `rgba(255,214,140,${(1 - k) * 0.8})`;
+      ctx.lineWidth = 10 * (1 - k) + 2;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, 12 + k * 90, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = `rgba(120,90,60,${(1 - k) * 0.35})`;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, 20 + k * 60, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    this.blasts = this.blasts.filter((b) => b.age < 0.45);
+    for (const d of this.debris) {
+      d.age += dt;
+      d.vy += GRAVITY * dt;
+      d.x += d.vx * dt;
+      d.y += d.vy * dt;
+      d.rot += d.vr * dt;
+      const k = d.age / d.life;
+      ctx.save();
+      ctx.translate(d.x, d.y);
+      ctx.rotate(d.rot);
+      ctx.globalAlpha = k > 0.6 ? 1 - (k - 0.6) / 0.4 : 1;
+      ctx.fillStyle = d.color;
+      ctx.beginPath();
+      ctx.moveTo(-d.size, -d.size * 0.6);
+      ctx.lineTo(d.size * 0.7, -d.size);
+      ctx.lineTo(d.size, d.size * 0.5);
+      ctx.lineTo(-d.size * 0.5, d.size * 0.9);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+    this.debris = this.debris.filter((d) => d.age < d.life && d.y < WORLD_H + 40);
   }
 
   /** Convert a client-space point to world coordinates. */
@@ -145,7 +263,9 @@ export class Renderer {
         if (hook.phase === 'retract') spin += dt * 10;
         else if (hook.phase === 'extend') spin -= dt * 10;
         this.reelSpin[p.index] = spin;
-        drawMiner(ctx, hook.pivotX, PIVOT_Y, spin, hook.phase, p.index);
+        const ms = this.minerState(p.index);
+        this.updateMiner(ms, hook.phase === 'swing', dt);
+        drawMiner(ctx, hook.pivotX, PIVOT_Y, spin, hook.phase, p.index, ms);
         drawClaw(ctx, hook.tipX, hook.tipY, hook.angle, hook.grabbed ? 0 : 1);
         // Local-player marker in two-player games
         if (game.players.length > 1 && p.index === game.localPlayer && game.isOnline) {
@@ -164,6 +284,7 @@ export class Renderer {
         }
       }
 
+      this.drawEffects(dt);
       for (const p of game.popups) {
         const k = p.age / p.life;
         ctx.globalAlpha = 1 - k * k;
