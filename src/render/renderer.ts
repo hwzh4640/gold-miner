@@ -96,17 +96,16 @@ export class Renderer {
   private minerState(i: number): MinerState {
     let s = this.miners[i];
     if (!s) {
-      s = { sit: false, smoke: 0, smokeT: Math.random() * 10, smoking: false, nextChange: this.time + 3 + Math.random() * 5 };
+      s = { smoke: 0, smokeT: Math.random() * 10, smoking: false, nextChange: this.time + 3 + Math.random() * 5 };
       this.miners[i] = s;
     }
     return s;
   }
 
-  /** Idle behaviour: every few seconds while the hook swings, maybe sit down or light up. */
+  /** Idle behaviour: every few seconds while the hook swings, maybe light up or put it away. */
   private updateMiner(s: MinerState, swinging: boolean, dt: number): void {
     s.smokeT += dt;
     if (swinging && this.time >= s.nextChange) {
-      s.sit = Math.random() < 0.45;
       s.smoking = Math.random() < 0.5;
       s.nextChange = this.time + 6 + Math.random() * 8;
     }
