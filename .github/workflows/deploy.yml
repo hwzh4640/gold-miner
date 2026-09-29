@@ -83,7 +83,8 @@ jobs:
           # Project site lives at https://<user>.github.io/<repo>/ (or the Pages custom domain).
           VITE_BASE: /${{ github.event.repository.name }}/
           # Empty when the worker job was skipped: online play shows "not set up".
-          VITE_RELAY_URL: ${{ needs.worker.outputs.url }}
+          # The RELAY_URL repo variable fills in when the worker job did not run.
+          VITE_RELAY_URL: ${{ needs.worker.outputs.url || vars.RELAY_URL }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
